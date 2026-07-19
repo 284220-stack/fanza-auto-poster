@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FANZA Auto Poster</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand"><span class="brand-mark">F</span><span>FANZA Auto Poster</span></div>
+        <nav><a class="active" href="#overview">概要</a><a href="#activity">投稿履歴</a><a href="#settings">設定</a></nav>
+        <button id="refresh" class="button secondary" type="button">更新</button>
+      </header>
+
+      <section class="page-head" id="overview">
+        <div><p class="eyebrow">AUTOMATION CONSOLE</p><h1>投稿オペレーション</h1><p class="subtle">Yahoo!メールから検出した対象情報を、設定済みのルールに沿ってXへ投稿します。</p></div>
+        <div id="mode" class="mode">読み込み中</div>
+      </section>
+
+      <section class="metrics" aria-label="本日の投稿数">
+        <article class="metric"><span>セール投稿</span><strong id="saleCount">-</strong><small id="saleLimit">/ - 件</small></article>
+        <article class="metric"><span>新製品投稿</span><strong id="newCount">-</strong><small id="newLimit">/ - 件</small></article>
+        <article class="metric"><span>メール確認間隔</span><strong id="pollInterval">-</strong><small>分ごと</small></article>
+      </section>
+
+      <section class="grid">
+        <article class="panel status-panel">
+          <div class="panel-title"><div><p class="eyebrow">SYSTEM</p><h2>自動運転の状態</h2></div><span class="dot-label"><i></i>稼働設定済み</span></div>
+          <dl class="status-list"><div><dt>メール受信</dt><dd>Yahoo! JAPANメール / IMAP</dd></div><div><dt>投稿先</dt><dd>X API</dd></div><div><dt>広告表記</dt><dd>#PR を自動付加</dd></div></dl>
+        </article>
+        <article class="panel">
+          <div class="panel-title"><div><p class="eyebrow">GUARDRAILS</p><h2>投稿ルール</h2></div></div>
+          <ul class="rule-list"><li>同一URL・同一メールは一度だけ投稿</li><li>日別の上限を超えた候補は翌日まで保留</li><li>対象外の送信元・キーワードは処理しない</li></ul>
+        </article>
+      </section>
+
+      <section class="panel setup" id="settings">
+        <div class="panel-title"><div><p class="eyebrow">INITIAL SETUP</p><h2>接続設定</h2><p class="subtle compact">この画面はローカルPCだけで開きます。保存後、パスワードとキーは再表示されません。</p></div><span id="setupBadge" class="badge">未設定</span></div>
+        <form id="settingsForm">
+          <div class="form-grid">
+            <label>Yahoo!メールアドレス<input id="yahooUser" name="YAHOO_IMAP_USER" type="email" autocomplete="username" placeholder="your-address@yahoo.co.jp" /></label>
+            <label>Yahoo! JAPAN IDのパスワード<input name="YAHOO_IMAP_PASSWORD" type="password" autocomplete="current-password" placeholder="保存済みの場合は空欄のまま" /></label>
+            <label>X API Key<input name="X_APP_KEY" type="password" autocomplete="off" placeholder="保存済みの場合は空欄のまま" /></label>
+            <label>X API Key Secret<input name="X_APP_SECRET" type="password" autocomplete="off" placeholder="保存済みの場合は空欄のまま" /></label>
+            <label>X Access Token<input name="X_ACCESS_TOKEN" type="password" autocomplete="off" placeholder="保存済みの場合は空欄のまま" /></label>
+            <label>X Access Token Secret<input name="X_ACCESS_SECRET" type="password" autocomplete="off" placeholder="保存済みの場合は空欄のまま" /></label>
+          </div>
+          <div class="form-grid compact-grid">
+            <label>メール確認間隔（分）<input id="settingPoll" name="POLL_MINUTES" type="number" min="1" value="10" /></label>
+            <label>セール投稿上限<input id="settingSale" name="DAILY_SALE_LIMIT" type="number" min="1" value="3" /></label>
+            <label>新製品投稿上限<input id="settingNew" name="DAILY_NEW_RELEASE_LIMIT" type="number" min="1" value="3" /></label>
+            <label>広告表記<input id="settingDisclosure" name="DISCLOSURE" type="text" value="#PR" /></label>
+          </div>
+          <label class="toggle"><input id="dryRun" name="DRY_RUN" type="checkbox" checked /><span></span><b>テスト運転にする</b><em>Xには投稿せず、投稿予定だけを記録します。</em></label>
+          <div class="actions"><button class="button primary" type="submit">設定を保存</button><button id="testYahoo" class="button" type="button">Yahoo!メールを接続テスト</button><button id="testX" class="button" type="button">Xを接続テスト</button><p id="formMessage" role="status"></p></div>
+        </form>
+      </section>
+
+      <section class="panel activity" id="activity">
+        <div class="panel-title"><div><p class="eyebrow">ACTIVITY</p><h2>直近の投稿履歴</h2></div><span id="historyCount" class="badge">0 件</span></div>
+        <div class="table-wrap"><table><thead><tr><th>種類</th><th>件名・タイトル</th><th>状態</th><th>日時</th><th></th></tr></thead><tbody id="history"><tr><td colspan="5" class="empty">まだ投稿履歴はありません</td></tr></tbody></table></div>
+      </section>
+    </main>
+    <template id="historyRow"><tr><td class="type"></td><td class="title"></td><td class="state"></td><td class="date"></td><td><a class="open" target="_blank" rel="noreferrer">開く</a></td></tr></template>
+    <script src="/app.js"></script>
+  </body>
+</html>
