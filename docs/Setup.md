@@ -162,3 +162,9 @@ npm run sync:sales:check -- --persist
 ## Railway preview運用確認（Step 6L）
 
 Railway productionで`npm run posts:run`を一回実行し、候補0件・各件数0・終了コード0を確認済みです。`DRY_RUN=true`によりX APIと`post_history`は更新されず、CLIは終了後に常駐しません。Schedulerは未有効化です。将来設定する場合も単一インスタンスで一回実行し、前回終了後に次回を開始してください。実行時刻・頻度は別途決定します。
+
+## 管理画面・投稿履歴（Step 7A）
+
+`npm run db:migrate`で投稿本文・文字数保存用migrationを適用し、`npm run dashboard`で管理画面を起動します。Basic認証が設定されている場合は認証後に、`#dashboard`、`#products`、`#actresses`、`#post-plan`、`#post-history`、`#operations`、`#settings`を確認できます。
+
+投稿履歴は`GET /api/post-history`で安全な一覧、`GET /api/post-history/:id`で詳細を取得します。一覧では`dateFrom`、`dateTo`、`status`、`actress`、`product`、`pendingReply`、`page`、`limit`を指定できます。既定のDRY_RUNでは実投稿も履歴保存も行いません。確認時に`DRY_RUN=false`へ変更したり、実投稿を実行したりしないでください。

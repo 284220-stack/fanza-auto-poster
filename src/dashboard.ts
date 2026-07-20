@@ -22,6 +22,8 @@ import { createXApiPostClient } from './x-api-adapter.js';
 import type { XPostClient } from './thread-post-execution.js';
 import { DatabasePostCandidateRepository, PostCandidateSelectionService } from './post-candidate-selection.js';
 import { PostCandidatePreviewService } from './post-candidate-preview.js';
+import { handlePostHistoryApiRequest } from './post-history-api.js';
+import { ProductRepository } from './products.js';
 
 const publicDir = new URL('../public/', import.meta.url).pathname;
 const dataDir = process.env.APP_DATA_DIR ?? new URL('../data/', import.meta.url).pathname;
@@ -154,6 +156,15 @@ createServer(async (request, response) => {
         sendJson(response, result.status, result.body);
         return;
       }
+    }
+    if (url.pathname.startsWith('/api/post-history')) {
+      const result = await handlePostHistoryApiRequest(request.method, url.pathname, url.searchParams, () => new PostHistoryRepository(getDatabasePool() as unknown as Queryable));
+      if (result) { sendJson(response, result.status, result.body); return; }
+    }
+    if (url.pathname === '/api/products' && request.method === 'GET') {
+      const products = await new ProductRepository(getDatabasePool() as unknown as Queryable).list();
+      sendJson(response, 200, { products: products.slice(0, 100) });
+      return;
     }
     if (url.pathname === '/api/sync/sales') {
       const result = await handleSaleSyncApiRequest(request.method, getSaleSyncExecutionService());

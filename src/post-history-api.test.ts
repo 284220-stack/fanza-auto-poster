@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { handlePostHistoryApiRequest } from './post-history-api.js';
+const item = { id: 2, productId: 1, xPostId: 'safe-id', postType: 'parent' as const, executionStatus: 'pending_reply' as const, parentHistoryId: null, postText: 'line one\nline two', characterCount: 17, postedAt: '2026-01-01T00:00:00Z', productTitle: '作品', actressNames: ['女優'], parentPostId: 'safe-id', replyPostId: null, replyText: null, repostAvailableAt: '2026-01-31T00:00:00Z' };
+let listed: unknown;
+const repo = { async list(options: unknown) { listed = options; return { items: [item], total: 1 }; }, async getDetail(id: number) { return id === 2 ? item : undefined; } };
+const list = await handlePostHistoryApiRequest('GET', '/api/post-history', new URLSearchParams('page=2&limit=10&status=pending_reply&actress=%E5%A5%B3%E5%84%AA&product=%E4%BD%9C%E5%93%81&dateFrom=2026-01-01&dateTo=2026-01-31&pendingReply=true'), () => repo);
+assert.equal(list?.status, 200); assert.deepEqual(listed, { page: 2, limit: 10, status: 'pending_reply', actress: '女優', product: '作品', dateFrom: '2026-01-01', dateTo: '2026-01-31', pendingReply: true });
+assert.equal((await handlePostHistoryApiRequest('GET', '/api/post-history/2', new URLSearchParams(), () => repo))?.status, 200);
+assert.equal((await handlePostHistoryApiRequest('GET', '/api/post-history/999', new URLSearchParams(), () => repo))?.status, 404);
+assert.equal((await handlePostHistoryApiRequest('GET', '/api/post-history', new URLSearchParams('pendingReply=no'), () => repo))?.status, 400);
+assert.equal((await handlePostHistoryApiRequest('GET', '/api/post-history', new URLSearchParams('dateFrom=bad'), () => repo))?.status, 400);
+assert.equal((await handlePostHistoryApiRequest('GET', '/api/post-history', new URLSearchParams('dateFrom=2026-02-01&dateTo=2026-01-01'), () => repo))?.status, 400);
+console.log('post history api: ok');

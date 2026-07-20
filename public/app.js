@@ -1,180 +1,25 @@
 import { splitActressAliases } from './actress-ui-utils.js';
 
-const labels = { sale: 'セール', newRelease: '新製品' };
-
-function formatDate(value) {
-  return new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
-}
-
-function setMessage(message, error = false) {
-  const target = document.querySelector('#formMessage');
-  target.textContent = message;
-  target.style.color = error ? '#b42318' : '#167b65';
-}
-
-function applySettings(status) {
-  document.querySelector('#yahooUser').value = status.yahooUser || '';
-  document.querySelector('#settingPoll').value = status.pollMinutes;
-  document.querySelector('#settingSale').value = status.saleLimit;
-  document.querySelector('#settingNew').value = status.newReleaseLimit;
-  document.querySelector('#settingDisclosure').value = status.disclosure;
-  document.querySelector('#dryRun').checked = status.dryRun;
-  document.querySelector('#officialSaleMonitor').checked = Boolean(status.officialSaleMonitor?.enabled);
-  document.querySelector('#officialSaleUrls').value = status.officialSaleMonitor?.urls || '';
-  const complete = Object.values(status.configured).every(Boolean);
-  document.querySelector('#setupBadge').textContent = complete ? '設定済み' : '入力が必要';
-}
-
-async function refresh() {
-  const button = document.querySelector('#refresh');
-  button.textContent = '更新中';
-  try {
-    const status = await (await fetch('/api/status')).json();
-    document.querySelector('#saleCount').textContent = status.daily.sale;
-    document.querySelector('#newCount').textContent = status.daily.newRelease;
-    document.querySelector('#saleLimit').textContent = `/ ${status.limits.sale} 件`;
-    document.querySelector('#newLimit').textContent = `/ ${status.limits.newRelease} 件`;
-    document.querySelector('#pollInterval').textContent = status.pollMinutes;
-    document.querySelector('#mode').textContent = status.dryRun ? 'テスト運転中' : '自動投稿中';
-    document.querySelector('#historyCount').textContent = `${status.history.length} 件`;
-    applySettings(status);
-    const tbody = document.querySelector('#history');
-    tbody.innerHTML = '';
-    if (!status.history.length) tbody.innerHTML = '<tr><td colspan="5" class="empty">まだ投稿履歴はありません</td></tr>';
-    for (const item of status.history) {
-      const row = document.querySelector('#historyRow').content.cloneNode(true);
-      row.querySelector('.type').textContent = labels[item.type];
-      row.querySelector('.title').textContent = item.title;
-      row.querySelector('.state').textContent = item.status === 'posted' ? '投稿済み' : 'テスト';
-      row.querySelector('.date').textContent = formatDate(item.postedAt);
-      row.querySelector('.open').href = item.url;
-      tbody.append(row);
-    }
-  } catch { document.querySelector('#mode').textContent = '接続待ち'; }
-  finally { button.textContent = '更新'; }
-}
-
-async function post(path, data) {
-  const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data ?? {}) });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.message || '操作に失敗しました。');
-  return result;
-}
-
-document.querySelector('#settingsForm').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const form = new FormData(event.currentTarget);
-  const values = Object.fromEntries(form.entries());
-  values.DRY_RUN = document.querySelector('#dryRun').checked ? 'true' : 'false';
-  values.OFFICIAL_SALE_MONITOR_ENABLED = document.querySelector('#officialSaleMonitor').checked ? 'true' : 'false';
-  try {
-    await post('/api/settings', values);
-    event.currentTarget.querySelectorAll('input[type="password"]').forEach((input) => { input.value = ''; });
-    setMessage('設定を保存しました。続けて接続テストを実行してください。');
-    await refresh();
-  } catch (error) { setMessage(error.message, true); }
-});
-
-document.querySelector('#testYahoo').addEventListener('click', async () => {
-  try { setMessage('Yahoo!メールへ接続しています。'); setMessage((await post('/api/test/yahoo')).message); }
-  catch (error) { setMessage(error.message, true); }
-});
-document.querySelector('#testX').addEventListener('click', async () => {
-  try { setMessage('Xへ接続しています。'); setMessage((await post('/api/test/x')).message); }
-  catch (error) { setMessage(error.message, true); }
-});
-
-document.querySelector('#testOfficialSales').addEventListener('click', async () => {
-  try { setMessage('公式セールページへ接続しています。'); setMessage((await post('/api/test/official-sales')).message); }
-  catch (error) { setMessage(error.message, true); }
-});
-document.querySelector('#refresh').addEventListener('click', refresh);
-refresh();
-
-let actressBusy = false;
-const actressElements = {
-  form: document.querySelector('#actressForm'), id: document.querySelector('#actressId'), name: document.querySelector('#actressName'), aliases: document.querySelector('#actressAliases'), priority: document.querySelector('#actressPriority'), interval: document.querySelector('#actressInterval'), weeklyLimit: document.querySelector('#actressWeeklyLimit'), enabled: document.querySelector('#actressEnabled'), newReleases: document.querySelector('#actressNewReleases'), sales: document.querySelector('#actressSales'), search: document.querySelector('#actressSearch'), filter: document.querySelector('#actressEnabledFilter'), list: document.querySelector('#actressList'), message: document.querySelector('#actressMessage'), save: document.querySelector('#saveActress'), cancel: document.querySelector('#cancelActressEdit'), reload: document.querySelector('#reloadActresses'), searchButton: document.querySelector('#searchActresses')
-};
-
-function actressMessage(message, error = false) { actressElements.message.textContent = message; actressElements.message.className = error ? 'message error' : 'message success'; }
-function apiMessage(result) { return typeof result?.message === 'string' ? result.message : '操作に失敗しました。'; }
-function setActressBusy(busy, message) {
-  actressBusy = busy;
-  actressElements.form.querySelectorAll('input, textarea, button').forEach((element) => { element.disabled = busy; });
-  actressElements.reload.disabled = busy;
-  actressElements.searchButton.disabled = busy;
-  if (message) actressMessage(message);
-}
-async function actressRequest(path, options = {}) {
-  const response = await fetch(path, options);
-  let result = {};
-  try { result = await response.json(); } catch { /* 安全な固定メッセージを使用する */ }
-  if (!response.ok) throw new Error(apiMessage(result));
-  return result;
-}
-function setCell(row, text) { const cell = document.createElement('td'); cell.textContent = text; row.append(cell); return cell; }
-function actionButton(text, className, handler) { const button = document.createElement('button'); button.type = 'button'; button.className = `button ${className}`; button.textContent = text; button.addEventListener('click', handler); return button; }
-function renderActresses(actresses) {
-  actressElements.list.replaceChildren();
-  if (!actresses.length) { const row = document.createElement('tr'); const cell = setCell(row, '条件に一致する女優はいません。'); cell.colSpan = 6; cell.className = 'empty'; actressElements.list.append(row); return; }
-  for (const actress of actresses) {
-    const row = document.createElement('tr');
-    setCell(row, actress.aliases.length ? `${actress.name}\n別名: ${actress.aliases.join('、')}` : actress.name).className = 'actress-name';
-    setCell(row, actress.enabled ? '有効' : '無効').className = actress.enabled ? 'state' : 'muted';
-    setCell(row, String(actress.priority));
-    setCell(row, `${actress.targetNewReleases ? '新作' : ''}${actress.targetNewReleases && actress.targetSales ? '・' : ''}${actress.targetSales ? 'セール' : ''}` || '対象外');
-    setCell(row, `${actress.minimumPostIntervalHours}時間ごと / 週${actress.weeklyPostLimit}件`);
-    const actions = document.createElement('td'); actions.className = 'row-actions';
-    actions.append(actionButton('編集', 'secondary', () => editActress(actress.id)), actionButton(actress.enabled ? '無効にする' : '有効にする', 'secondary', () => toggleActress(actress)), actionButton('削除', 'danger', () => deleteActress(actress)));
-    row.append(actions); actressElements.list.append(row);
-  }
-}
-async function loadActresses() {
-  if (actressBusy) return;
-  setActressBusy(true, '女優一覧を読み込んでいます。');
-  try {
-    const params = new URLSearchParams(); const search = actressElements.search.value.trim(); const enabled = actressElements.filter.value;
-    if (search) params.set('search', search); if (enabled) params.set('enabled', enabled);
-    const result = await actressRequest(`/api/actresses${params.size ? `?${params}` : ''}`);
-    renderActresses(Array.isArray(result.actresses) ? result.actresses : []); actressMessage('女優一覧を更新しました。');
-  } catch (error) { renderActresses([]); actressMessage(error instanceof Error ? error.message : '女優一覧を読み込めませんでした。', true); }
-  finally { setActressBusy(false); }
-}
-function resetActressForm() {
-  actressElements.form.reset(); actressElements.id.value = ''; actressElements.priority.value = '100'; actressElements.interval.value = '24'; actressElements.weeklyLimit.value = '2'; actressElements.enabled.checked = true; actressElements.newReleases.checked = true; actressElements.sales.checked = true; actressElements.save.textContent = '女優を追加'; actressElements.cancel.hidden = true;
-}
-function actressPayload() { return { name: actressElements.name.value, aliases: splitActressAliases(actressElements.aliases.value), enabled: actressElements.enabled.checked, priority: Number(actressElements.priority.value), target_new_releases: actressElements.newReleases.checked, target_sales: actressElements.sales.checked, minimum_post_interval_hours: Number(actressElements.interval.value), weekly_post_limit: Number(actressElements.weeklyLimit.value) }; }
-async function editActress(id) {
-  if (actressBusy) return; setActressBusy(true, '女優情報を読み込んでいます。');
-  try { const { actress } = await actressRequest(`/api/actresses/${id}`); actressElements.id.value = actress.id; actressElements.name.value = actress.name; actressElements.aliases.value = actress.aliases.join(', '); actressElements.enabled.checked = actress.enabled; actressElements.priority.value = actress.priority; actressElements.newReleases.checked = actress.targetNewReleases; actressElements.sales.checked = actress.targetSales; actressElements.interval.value = actress.minimumPostIntervalHours; actressElements.weeklyLimit.value = actress.weeklyPostLimit; actressElements.save.textContent = '変更を保存'; actressElements.cancel.hidden = false; actressMessage('編集内容を変更して保存してください。'); actressElements.name.focus(); }
-  catch (error) { actressMessage(error instanceof Error ? error.message : '女優情報を読み込めませんでした。', true); }
-  finally { setActressBusy(false); }
-}
-async function toggleActress(actress) {
-  if (actressBusy) return; setActressBusy(true, '有効状態を変更しています。');
-  let changed = false;
-  try { await actressRequest(`/api/actresses/${actress.id}/enabled`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !actress.enabled }) }); actressMessage(`${actress.name}を${actress.enabled ? '無効' : '有効'}にしました。`); changed = true; }
-  catch (error) { actressMessage(error instanceof Error ? error.message : '有効状態を変更できませんでした。', true); }
-  finally { setActressBusy(false); if (changed) await loadActresses(); }
-}
-async function deleteActress(actress) {
-  if (actressBusy || !window.confirm(`「${actress.name}」を削除しますか？\n通常は削除ではなく無効化をおすすめします。`)) return;
-  setActressBusy(true, '女優を削除しています。');
-  let deleted = false;
-  try { await actressRequest(`/api/actresses/${actress.id}`, { method: 'DELETE' }); actressMessage('女優を削除しました。'); deleted = true; }
-  catch (error) { actressMessage(error instanceof Error ? error.message : '女優を削除できませんでした。', true); }
-  finally { setActressBusy(false); if (deleted) await loadActresses(); }
-}
-actressElements.form.addEventListener('submit', async (event) => {
-  event.preventDefault(); if (actressBusy) return;
-  const id = actressElements.id.value; setActressBusy(true, id ? '変更を保存しています。' : '女優を追加しています。');
-  let saved = false;
-  try { await actressRequest(id ? `/api/actresses/${id}` : '/api/actresses', { method: id ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(actressPayload()) }); actressMessage(id ? '変更を保存しました。' : '女優を追加しました。'); resetActressForm(); saved = true; }
-  catch (error) { actressMessage(error instanceof Error ? error.message : '保存に失敗しました。', true); }
-  finally { setActressBusy(false); if (saved) await loadActresses(); }
-});
-actressElements.cancel.addEventListener('click', resetActressForm);
-actressElements.reload.addEventListener('click', loadActresses);
-actressElements.searchButton.addEventListener('click', loadActresses);
-actressElements.search.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); loadActresses(); } });
-loadActresses();
+const routes={dashboard:['ダッシュボード','投稿運用の状態を確認します。'],products:['商品管理','保存済み商品の状態を確認します。'],actresses:['女優管理','指定女優と投稿ルールを管理します。'],'post-plan':['投稿予定','dryRunの安全な候補プレビューです。'],'post-history':['投稿履歴','実投稿の親投稿・返信内容を確認します。'],operations:['同期・実行','安全な同期とpreviewだけを実行します。'],settings:['設定','秘密値を表示せず設定状態を確認します。']};
+const content=document.querySelector('#content'),toast=document.querySelector('#toast');
+const el=(tag,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;return node};
+const button=(text,handler,kind='button')=>{const b=el('button',text);b.type='button';b.className=`button ${kind==='danger'?'danger':kind==='secondary'?'secondary':''}`;b.addEventListener('click',handler);return b};
+const panel=(title)=>{const p=el('section');p.className='panel';const h=el('div');h.className='panel-head';h.append(el('h2',title));p.append(h);return p};
+const table=(heads)=>{const wrap=el('div');wrap.className='table-wrap';const t=el('table'),thead=el('thead'),tr=el('tr'),body=el('tbody');heads.forEach(x=>tr.append(el('th',x)));thead.append(tr);t.append(thead,body);wrap.append(t);return{wrap,body}};
+const notify=(message,error=false)=>{toast.textContent=message;toast.style.background=error?'#7f1d1d':'#14532d';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),3000)};
+const api=async(path,options)=>{const r=await fetch(path,options);let value={};try{value=await r.json()}catch{}if(!r.ok)throw new Error(value.message||'操作に失敗しました。');return value};
+const date=v=>v?new Intl.DateTimeFormat('ja-JP',{dateStyle:'short',timeStyle:'short'}).format(new Date(v)):'-';
+const badge=(text,kind='')=>{const b=el('span',text);b.className=`badge ${kind}`;return b};
+function row(body,values){const tr=el('tr');values.forEach(v=>{const td=el('td');if(v instanceof Node)td.append(v);else td.textContent=v;tr.append(td)});body.append(tr);return tr}
+function empty(body,text,span){const tr=el('tr'),td=el('td',text);td.className='empty';td.colSpan=span;tr.append(td);body.append(tr)}
+function renderDashboard(){const cards=el('div');cards.className='cards';content.append(cards);api('/api/status').then(status=>{const values=[['DRY_RUN',status.dryRun?'有効':'無効'],['投稿済み件数',status.history?.length??0],['今日のセール投稿',status.daily?.sale??0],['今日の新作投稿',status.daily?.newRelease??0],['セール上限',status.limits?.sale??'-'],['新作上限',status.limits?.newRelease??'-']];values.forEach(([label,value])=>{const c=el('article');c.className='card metric';c.append(el('span',label),el('strong',String(value)));cards.append(c)});return api('/api/actresses')}).then(x=>{const c=el('article');c.className='card metric';c.append(el('span','有効女優数'),el('strong',String(x.actresses.filter(a=>a.enabled).length)));cards.append(c);return api('/api/products')}).then(x=>{const c=el('article');c.className='card metric';c.append(el('span','登録商品数'),el('strong',String(x.products.length)));cards.append(c);const s=el('article');s.className='card metric';s.append(el('span','セール商品数'),el('strong',String(x.products.filter(p=>p.isSale).length)));cards.append(s)}).catch(e=>content.append(Object.assign(el('p',e.message),{className:'error'})))}
+function renderProducts(){const p=panel('商品一覧');content.append(p);const filter=el('div');filter.className='filters';const sale=el('select');sale.append(new Option('すべての状態',''),new Option('セールのみ','sale'));filter.append(sale);p.append(filter);const {wrap,body}=table(['タイトル','セール','発売日','動画','状態']);p.append(wrap);const load=async()=>{body.replaceChildren();try{let items=(await api('/api/products')).products;if(sale.value==='sale')items=items.filter(x=>x.isSale);if(!items.length)return empty(body,'条件に一致する商品はありません。',5);items.slice(0,50).forEach(x=>row(body,[x.title,x.isSale?'セール':'通常',x.releaseDate||'-',x.sampleVideoUrl?'あり':'なし',x.status]));}catch(e){empty(body,e.message,5)}};sale.addEventListener('change',load);load()}
+function actressForm(existing){const form=el('form');const fields=[['name','女優名','text',existing?.name||''],['aliases','別名','text',existing?.aliases?.join(', ')||''],['priority','優先度','number',existing?.priority??100],['interval','最低投稿間隔（時間）','number',existing?.minimumPostIntervalHours??24],['weekly','週間投稿上限','number',existing?.weeklyPostLimit??2]];const grid=el('div');grid.className='form-grid';fields.forEach(([id,label,type,value])=>{const l=el('label',label),i=el('input');i.id=`actress-${id}`;i.type=type;i.value=String(value);l.append(i);grid.append(l)});form.append(grid);const actions=el('div');actions.className='actions';actions.append(button(existing?'変更を保存':'女優を追加',async()=>{const data={name:document.querySelector('#actress-name').value,aliases:splitActressAliases(document.querySelector('#actress-aliases').value),priority:Number(document.querySelector('#actress-priority').value),minimum_post_interval_hours:Number(document.querySelector('#actress-interval').value),weekly_post_limit:Number(document.querySelector('#actress-weekly').value),enabled:true,target_new_releases:true,target_sales:true};try{await api(existing?`/api/actresses/${existing.id}`:'/api/actresses',{method:existing?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});notify('保存しました。');route()}catch(e){notify(e.message,true)}}));form.append(actions);return form}
+function renderActresses(){const p=panel('指定女優');content.append(p);p.append(actressForm());const {wrap,body}=table(['女優名','状態','優先度','操作']);p.append(wrap);api('/api/actresses').then(x=>{if(!x.actresses.length)return empty(body,'女優は登録されていません。',4);x.actresses.forEach(a=>{const actions=el('div');actions.append(button(a.enabled?'無効':'有効',async()=>{await api(`/api/actresses/${a.id}/enabled`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!a.enabled})});route()},'secondary'),button('削除',async()=>{if(confirm('この女優を削除しますか？')){await api(`/api/actresses/${a.id}`,{method:'DELETE'});route()}},'danger'));row(body,[a.name,a.enabled?'有効':'無効',String(a.priority),actions])})}).catch(e=>empty(body,e.message,4))}
+function renderPlan(){const p=panel('投稿候補preview');const run=button('プレビューを更新',async()=>{run.disabled=true;try{const r=await api('/api/posts/preview',{method:'POST'});draw(r)}catch(e){notify(e.message,true)}finally{run.disabled=false}});p.querySelector('.panel-head').append(run);content.append(p);const {wrap,body}=table(['順序','カテゴリ','action','status','親文字数','返信文字数','warnings']);p.append(wrap);const draw=r=>{body.replaceChildren();if(!r.items?.length)return empty(body,'投稿候補はありません。',7);r.items.forEach(x=>row(body,[String(x.selectedOrder),x.category,x.action,x.status,String(x.parentPostCharacterCount),String(x.replyCharacterCount),(x.warnings||[]).join(', ')]))};run.click()}
+function renderHistory(){const p=panel('投稿履歴');content.append(p);const filter=el('div');filter.className='filters';const fields={dateFrom:el('input'),dateTo:el('input'),status:el('select'),actress:el('input'),product:el('input'),pendingReply:el('select')};fields.dateFrom.type=fields.dateTo.type='date';fields.status.append(new Option('すべての状態',''),new Option('投稿済み','posted'),new Option('返信待ち','pending_reply'));fields.actress.placeholder='女優名';fields.product.placeholder='商品名';fields.pendingReply.append(new Option('pendingを含む',''),new Option('返信待ちのみ','true'),new Option('完了のみ','false'));Object.values(fields).forEach(x=>filter.append(x));const search=button('検索',()=>{page=1;load()}),clear=button('条件クリア',()=>{Object.values(fields).forEach(x=>x.value='');page=1;load()},'secondary');filter.append(search,clear);p.append(filter);const {wrap,body}=table(['日時','商品','女優','状態','親投稿','返信','詳細']);p.append(wrap);const pager=el('div');pager.className='actions';let page=1,total=0;const previous=button('前へ',()=>{page--;load()},'secondary'),next=button('次へ',()=>{page++;load()},'secondary'),count=el('span');pager.append(previous,count,next);p.append(pager);const load=async()=>{body.replaceChildren();try{const q=new URLSearchParams({page:String(page),limit:'20'});Object.entries(fields).forEach(([k,v])=>{if(v.value)q.set(k,v.value)});const r=await api(`/api/post-history?${q}`);total=r.total;count.textContent=`${page}ページ / ${total}件`;previous.disabled=page===1;next.disabled=page*20>=total;if(!r.items.length)return empty(body,'投稿履歴はありません。',7);r.items.forEach(item=>{const detail=button('詳細',async()=>showHistory(await api(`/api/post-history/${item.id}`)));const parent=el('span',item.postText||'-');parent.className='truncate';const reply=el('span',item.replyText||'-');reply.className='truncate';row(body,[date(item.postedAt),item.productTitle,(item.actressNames||[]).join('、')||'-',item.executionStatus,parent,reply,detail])})}catch(e){empty(body,e.message,7)}};load()}
+function showHistory({history}){const modal=el('div');modal.className='modal';const article=el('article');article.append(el('h2','投稿履歴詳細'),el('p',`${history.productTitle} / ${date(history.postedAt)}`),el('h3','親投稿'),Object.assign(el('pre',history.postText||'保存されていません。'),{className:'post-text'}),el('h3','返信'),Object.assign(el('pre',history.replyText||'返信はありません。'),{className:'post-text'}),button('閉じる',()=>modal.remove(),'secondary'));modal.append(article);document.body.append(modal)}
+function renderOperations(){const p=panel('同期・実行');content.append(p);const note=el('p','実X投稿はこの画面から実行できません。');note.className='muted';p.append(note);const actions=el('div');actions.className='actions';actions.append(button('セール同期 check-only',()=>operate('/api/sync/sales',{})),button('候補preview',()=>{location.hash='post-plan'},'secondary'));p.append(actions);function operate(path,data){api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(()=>notify('安全な実行が完了しました。')).catch(e=>notify(e.message,true))}}
+function renderSettings(){const p=panel('設定状態');content.append(p);api('/api/status').then(s=>{const list=el('div');list.className='cards';[['DRY_RUN',s.dryRun?'有効':'無効'],['Yahoo!メール',s.configured?.YAHOO_IMAP_USER?'設定済み':'未設定'],['X API',Object.values(s.configured||{}).filter(Boolean).length>=5?'設定済み':'未設定'],['公式セール監視',s.officialSaleMonitor?.enabled?'有効':'無効']].forEach(([a,b])=>{const c=el('article');c.className='card metric';c.append(el('span',a),el('strong',b));list.append(c)});p.append(list)}).catch(e=>p.append(Object.assign(el('p',e.message),{className:'error'})))}
+function route(){let key=location.hash.slice(1)||'dashboard';if(!routes[key]){location.hash='#dashboard';return}content.replaceChildren();document.querySelectorAll('#menu a').forEach(a=>a.classList.toggle('active',a.dataset.route===key));const [title,desc]=routes[key];document.querySelector('#pageTitle').textContent=title;document.querySelector('#pageDescription').textContent=desc;({dashboard:renderDashboard,products:renderProducts,actresses:renderActresses,'post-plan':renderPlan,'post-history':renderHistory,operations:renderOperations,settings:renderSettings})[key]();document.querySelector('#sidebar').classList.remove('open');document.querySelector('#overlay').classList.remove('open')}
+document.querySelector('#menuToggle').addEventListener('click',()=>{document.querySelector('#sidebar').classList.add('open');document.querySelector('#overlay').classList.add('open')});document.querySelector('#overlay').addEventListener('click',route);document.querySelector('#globalRefresh').addEventListener('click',route);window.addEventListener('hashchange',route);route();
