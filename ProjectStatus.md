@@ -2,6 +2,12 @@
 
 ## Phase 2: 投稿訴求基盤
 
+### Step 6K: 投稿スケジューラー実行基盤（完了）
+
+- `ScheduledPostRunService`、preview/executeモード、`npm run posts:run` CLI、プロセス内多重起動防止、終了時のDB Pool終了を実装した。
+- previewを既定とし、executeでも環境変数の`DRY_RUN=false`が明示されない限りX API・投稿履歴を更新しない。30日再投稿禁止とpending_reply優先は既存Orchestratorへ委譲する。
+- Completion Gateと自己レビューを通過した。Railway Scheduler実設定、動画、GUI刷新、分散ロックは未実装であり、次Step候補はRailway Schedulerの実設定と単一インスタンス運用確認である。
+
 ### Step 6J: 投稿候補dryRun実行プレビュー（完了）
 
 - 候補選定からタイトル解析、キラーメッセージ、投稿テンプレート、Orchestrator dryRunまでを接続し、最大5件の安全な予定一覧を返す`PostCandidatePreviewService`を追加した。
