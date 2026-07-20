@@ -4,12 +4,10 @@
 
 Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先する自己見積もり、実装順序、中断、コミットのルールを追加した。Step 3A〜3CとStep 4A〜4Cは実装済みである。
 
-## 進行中: Step 4D セール商品保存・更新処理
+## Step 4Dの実装内容
 
-- 完了済み: 更新時に既存商品を完全なProductInputへ合成する方針を確定した。
-- 未完了: 保存オーケストレーション、単体テスト、文書更新、全検証。
-- 再開地点: `src/sale-product-persistence.ts` を追加し、Provider結果をProductServiceのcreate/updateへ渡す。未取得の任意項目は既存値を維持する。
-- 検証状態: 実装前。
+- セールProvider結果をProduct Serviceへ保存するオーケストレーションを追加した。既存商品は完全なProductInputへ合成し、未取得項目を維持して更新する。
+- 作成・更新・スキップ・失敗を集計し、女優関連付けと定期実行は未実装である。
 
 ## Sprint 0の実施内容
 

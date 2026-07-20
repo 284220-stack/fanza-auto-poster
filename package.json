@@ -9,7 +9,7 @@
     "start": "npm run build && node dist/index.js",
     "dashboard": "npm run build && node dist/dashboard.js",
     "check": "tsc --noEmit",
-    "test": "tsc && node dist/extract.test.js && node dist/db/health.test.js && node dist/actresses.test.js && node dist/actress-api.test.js && node dist/actress-ui.test.js && node dist/products.test.js && node dist/providers.test.js && node dist/fanza-sale-provider.test.js",
+    "test": "tsc && node dist/extract.test.js && node dist/db/health.test.js && node dist/actresses.test.js && node dist/actress-api.test.js && node dist/actress-ui.test.js && node dist/products.test.js && node dist/providers.test.js && node dist/fanza-sale-provider.test.js && node dist/sale-product-persistence.test.js",
     "db:migrate": "node-pg-migrate up --migrations-dir migrations --database-url-var DATABASE_URL --envPath .env",
     "db:migrate:down": "node-pg-migrate down --migrations-dir migrations --database-url-var DATABASE_URL --envPath .env",
     "db:migrate:create": "node-pg-migrate create --migrations-dir migrations --migration-file-language ts"
