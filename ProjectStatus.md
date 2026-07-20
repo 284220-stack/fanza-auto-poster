@@ -2,6 +2,13 @@
 
 ## Phase 2: 投稿訴求基盤
 
+### Step 6L: Railway Scheduler実設定・preview運用確認（完了）
+
+- Railway production上で`npm run posts:run`を一回だけpreview実行した。`selectedCount`、`attemptedCount`、`dryRunCount`、`blockedCount`、`retryReplyCount`、`failedCount`はいずれも0で、候補0件は正常終了として扱った。
+- CLIは終了コード0で正常終了し、プロセスは常駐しなかった。`DRY_RUN=true`のためX APIは未実行で、DB投稿履歴も更新されていない。出力は安全な件数・action/status要約であり、投稿本文、URL、認証情報、内部情報を含まない。
+- Railway Schedulerは未有効化である。設定する場合は`npm run posts:run`を単一インスタンスで一回ずつ起動し、前回終了後に次回を開始する。時刻・頻度は未確定のままとする。
+- Step 6L完了後はGUI刷新へ移行する。左固定サイドメニューと選択ページ表示へ改め、縦長の全機能一括表示を廃止し、ダッシュボード、女優管理、商品、投稿予定、履歴、設定を分離する。既存機能は維持する。
+
 ### Step 6K: 投稿スケジューラー実行基盤（完了）
 
 - `ScheduledPostRunService`、preview/executeモード、`npm run posts:run` CLI、プロセス内多重起動防止、終了時のDB Pool終了を実装した。

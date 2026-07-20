@@ -158,3 +158,7 @@ npm run sync:sales:check -- --persist
 `npm run posts:run`は既定でpreviewを一回実行し、X APIと投稿履歴を更新しません。`npm run posts:run -- --execute`はexecuteモードを選びますが、これだけで`DRY_RUN`をfalseにはしません。実投稿には環境変数で明示した`DRY_RUN=false`と必要なX認証情報が必要です。
 
 件数は`npm run posts:run -- --limit 5`または`--limit=5`で指定でき、上限は5です。出力は件数、productId、カテゴリ、action、statusだけの安全な要約です。preview成功とexecute全成功は終了コード0、executeでpartial_successまたはblockedを含む場合、設定不足・全失敗・already_runningは終了コード1です。CLIは終了時にDB Poolを閉じます。Railway Schedulerの画面設定と分散ロックは未実装です。
+
+## Railway preview運用確認（Step 6L）
+
+Railway productionで`npm run posts:run`を一回実行し、候補0件・各件数0・終了コード0を確認済みです。`DRY_RUN=true`によりX APIと`post_history`は更新されず、CLIは終了後に常駐しません。Schedulerは未有効化です。将来設定する場合も単一インスタンスで一回実行し、前回終了後に次回を開始してください。実行時刻・頻度は別途決定します。
