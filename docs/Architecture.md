@@ -150,6 +150,11 @@ settings（独立したシステム設定）
 - `DatabasePostCandidateRepository`は商品、女優関連、お気に入り、親投稿履歴を集約し、`PostCandidateSelectionService`がセール2、女優2、お気に入りセール1を決定的に選ぶ。
 - 30日親投稿、pending返信、非販売、URL・タイトル欠損、無効女優のみ、カテゴリ間重複を除外する。不足時は`category_shortage`を返し、水増ししない。
 
+## 投稿候補dryRunプレビュー（Step 6J）
+
+- `PostCandidatePreviewService`は選定済み候補をタイトル解析、キラーメッセージ、投稿テンプレート、OrchestratorのdryRunへ順に渡す。本文・URLを返さず、件数、文字数、action、statusだけを返す。
+- X APIと投稿履歴は更新せず、候補不足・blocked・retry_replyを安全な要約として引き継ぐ。
+
 ## セキュリティと配置
 
 - X API資格情報、アフィリエイトID、管理画面パスワードは環境変数で供給する。

@@ -20,6 +20,8 @@ import { PostExecutionOrchestrator } from './post-execution-orchestrator.js';
 import { handlePostExecutionApiRequest } from './post-execution-api.js';
 import { createXApiPostClient } from './x-api-adapter.js';
 import type { XPostClient } from './thread-post-execution.js';
+import { DatabasePostCandidateRepository, PostCandidateSelectionService } from './post-candidate-selection.js';
+import { PostCandidatePreviewService } from './post-candidate-preview.js';
 
 const publicDir = new URL('../public/', import.meta.url).pathname;
 const dataDir = process.env.APP_DATA_DIR ?? new URL('../data/', import.meta.url).pathname;
@@ -170,6 +172,15 @@ createServer(async (request, response) => {
         return new PostExecutionOrchestrator(new PostEligibilityService(history), new ReplyRetryService(history), new ThreadPostPersistenceService(history));
       }, client);
       sendJson(response, result.status, result.body);
+      return;
+    }
+    if (url.pathname === '/api/posts/preview') {
+      if (request.method !== 'POST') { sendJson(response, 400, { message: 'POST メソッドで実行してください。' }); return; }
+      const history = new PostHistoryRepository(getDatabasePool() as unknown as Queryable);
+      const orchestrator = new PostExecutionOrchestrator(new PostEligibilityService(history), new ReplyRetryService(history), new ThreadPostPersistenceService(history));
+      const client: XPostClient = { createPost: async () => { throw new Error('dry run'); }, createReply: async () => { throw new Error('dry run'); } };
+      const preview = await new PostCandidatePreviewService(() => new PostCandidateSelectionService(new DatabasePostCandidateRepository(getDatabasePool() as unknown as { query<T>(sql: string): Promise<{ rows: T[] }> })).select(), orchestrator).preview({ client });
+      sendJson(response, 200, preview);
       return;
     }
     if (url.pathname === '/api/status') {
