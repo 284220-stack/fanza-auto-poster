@@ -133,4 +133,12 @@ npm run sync:sales:check -- --persist
 
 `fetchedCount: 0` かつ `warningsCount` が大きい場合は、`warningReasons` の最多コードを確認して除外理由を判断します。診断のために保存ロジックやセール判定条件を変更しないでください。
 
+### DMM価格形式診断（Step 5D）
+
+`invalid_price` が出た場合、`priceFormats` と `priceDiagnostics` を確認します。どちらも `current_price` または `list_price`、固定形式コード、JavaScript型、配列・オブジェクト判定、文字数だけを集計し、価格実値は表示しません。
+
+変換対象は数値、数字文字列、3桁カンマ区切り、`円`接尾辞、`¥`/`￥`接頭辞、前後空白、全角数字です。空文字、範囲表記、月額などのテキストを含む値、配列・オブジェクト、負数、非有限数は推測せず除外します。
+
+例として、`priceFormats: current_price:comma_separated=1` は現在価格でカンマ区切り形式の変換失敗が1件あったことだけを示します。`priceDiagnostics` は同じ失敗の型・形状・文字数を示します。価格の最小値・最大値・推測値を採用しないでください。
+
 既存の管理画面起動コマンドは `npm run dashboard`。認証情報、トークン、アフィリエイトID、パスワードはリポジトリへ追加せず、環境変数等で安全に管理する。

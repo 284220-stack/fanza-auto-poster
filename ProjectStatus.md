@@ -1,5 +1,12 @@
 # Project Status
 
+## Step 5D: DMM価格形式診断と安全な価格変換（完了）
+
+- `src/dmm-price.ts` にDMM API専用の価格変換を追加した。数値、数字文字列、カンマ区切り、円接尾辞、円記号、前後空白、全角数字を安全に数値化し、有限かつ0以上だけを許可する。
+- 変換不能な価格は引き続き `invalid_price` として除外し、`priceFormats` と `priceDiagnostics` で `current_price`/`list_price`、形式、JavaScript型、配列・オブジェクト判定、文字数だけを集計する。価格実値・商品情報・認証情報は出力しない。
+- 空文字、範囲表記、月額等のテキスト、配列・オブジェクト、負数、Infinity、NaNは推測せず失敗扱いとする。`list_price <= price` の既存セール除外条件は変更していない。
+- 次のStep候補は、実環境check-onlyで`priceFormats`を確認し、必要なら別StepでDMM APIの取得条件または対象フロアを再調査することである。
+
 ## Step 5C: Sale Provider警告分類診断（完了）
 
 - 実環境persistは完了したが、`fetchedCount: 0` と `warningsCount: 21` が確認されたため、`FanzaSaleProvider` の除外警告を安全なreason codeへ分類した。
