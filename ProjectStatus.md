@@ -2,12 +2,14 @@
 
 ## 現在地
 
-Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先する自己見積もり、実装順序、中断、コミットのルールを追加した。Step 3A〜3CとStep 4A〜4Cは実装済みである。
+Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先する自己見積もり、実装順序、中断、コミットのルールを追加した。Step 3A〜3CとStep 4A〜4Dは実装済みである。
 
 ## Step 4Dの実装内容
 
-- セールProvider結果をProduct Serviceへ保存するオーケストレーションを追加した。既存商品は完全なProductInputへ合成し、未取得項目を維持して更新する。
-- 作成・更新・スキップ・失敗を集計し、女優関連付けと定期実行は未実装である。
+- 実装ファイルは `src/sale-product-persistence.ts`。公開契約は `persistSaleProducts(provider, writer)`、`ProductWriter`、`PersistenceResult` である。
+- `ProductWriter` は `getByFanzaProductId`、`create`、完全な`ProductInput`を受け取る`update`をDIする。SQLやRepositoryをオーケストレーション層から直接利用しない。
+- 既存商品は商品IDで取得し、Provider未取得または空文字の任意項目を維持した完全入力へ合成して更新する。新規はcreate、重複・必須情報不足はスキップし、個別失敗は安全なerrorsへ集計する。
+- 結果モデルは取得・作成・更新・スキップ・失敗件数、warnings、安全なerrors、開始・完了時刻を返す。女優関連付けと定期実行は未実装である。
 
 ## Sprint 0の実施内容
 
@@ -79,7 +81,7 @@ Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先
 
 ## 未実装事項
 
-- FANZAセール取得Provider、商品保存、アフィリエイトURL・動画の実データ検証
+- FANZAセール同期Runner、アフィリエイトURL・動画の実データ検証
 - Chrome拡張、お気に入り同期API
 - 3区分選定、30日制限、文面重複検出、動画付き親投稿と返信投稿
 - 分析エンジン、新しい管理画面、Railway PostgreSQL連携
@@ -93,4 +95,4 @@ Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先
 
 ## 次のStep
 
-Step 4D候補: Chrome拡張からFANZAお気に入りを同期する機能と同期APIを実装する。
+Step 4E候補: `FanzaSaleProvider` と `persistSaleProducts` をDIして実行・集計するSaleSyncRunnerを実装する。Cron登録は後続とする。

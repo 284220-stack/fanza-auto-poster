@@ -13,6 +13,7 @@
 | 4B | 商品取得Provider基盤 | 共通モデル、正規化、Provider Registry、FakeProvider | 正規化、部分成功、Registry、取得条件 |
 | 4C | FANZAセール取得Provider | 許可された方法によるセール候補取得Provider | 取得結果、正規化、異常時 |
 | 4D | セール商品保存・更新 | Sale Provider結果をproductsへ作成・更新 | 作成、既存値維持、重複、部分失敗 |
+| 4E | セール商品同期Runner | Providerと保存処理をDIし、同期結果と実行時間を集計 | 正常同期、Provider失敗、保存失敗、ログ |
 | 4D | お気に入り同期 | Chrome拡張と同期API、認証情報非保存 | 抽出、API認証、upsert |
 | 5 | 商品取得アダプター | 状態、価格、セール/新作、動画、URLの正規化 | 正常、欠損、無効、販売終了 |
 | 6 | 選定・条件判定 | 3区分、最大5、候補不足、重複防止 | 枠境界、30日、文面、除外 |

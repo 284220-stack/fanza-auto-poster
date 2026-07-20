@@ -63,6 +63,7 @@ settings（独立したシステム設定）
 ## セール商品保存・更新（Step 4D）
 
 - Sale Providerの共通結果をProduct Service経由で保存する。既存商品は商品IDで取得し、Provider未取得の任意項目を保持した完全入力として更新する。
+- 公開境界は `persistSaleProducts(provider, writer)` であり、次のRunnerはProviderと`ProductWriter`をDIして利用する。女優関連付け・定期実行はこの層に含めない。
 
 ## 指定女優管理API（Step 3B）
 
