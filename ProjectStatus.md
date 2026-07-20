@@ -2,7 +2,7 @@
 
 ## 現在地
 
-Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先する自己見積もり、実装順序、中断、コミットのルールを追加した。Step 3A〜3C（指定女優管理）とStep 4A〜4B（商品データ・Provider基盤）は実装済みである。既存のYahoo!メール監視、JSON状態保存、投稿処理は変更していない。
+Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先する自己見積もり、実装順序、中断、コミットのルールを追加した。Step 3A〜3CとStep 4A〜4Cは実装済みである。
 
 ## Sprint 0の実施内容
 
@@ -42,6 +42,11 @@ Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先
 - sale・new_release・favorite等を扱えるProvider共通モデル、取得条件、取得結果、Provider Registryを追加した。
 - 正規化は空値・重複女優名・URL・価格・日付を検証し、不正な候補を警告付きで除外する。rawDataは秘密情報らしいキーを除外する。
 - 実際のFANZAアクセス、HTML解析、Chrome拡張、商品保存は未実装である。
+
+## Step 4Cの実装内容
+
+- DMM Webサービス ItemListを注入可能なHTTPクライアントで利用するFANZAセールProviderを追加した。
+- キャンペーン期間内かつ通常価格が現在価格を上回る候補だけを返し、動画・女優名・ページングを共通形式へ変換する。商品保存は未実装である。
 
 ## Step 2の実装内容
 
@@ -83,4 +88,4 @@ Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先
 
 ## 次のStep
 
-Step 4C候補: 許可された方法でFANZAセール候補を取得するProviderを実装する。
+Step 4D候補: Chrome拡張からFANZAお気に入りを同期する機能と同期APIを実装する。
