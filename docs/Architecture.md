@@ -145,6 +145,11 @@ settings（独立したシステム設定）
 - `PostExecutionOrchestrator`は適格性確認を先に実行し、pending_replyは返信再試行、再投稿期間中はブロック、その他は新規スレッド投稿へ既存サービスを委譲する。
 - Basic認証下の`POST /api/posts/execute`は安全な要約だけを返す。productId単位の同一プロセス内ロックがあり、分散ロック、動画、候補選定、スケジューラーは未実装である。
 
+## 投稿候補選定（Step 6I）
+
+- `DatabasePostCandidateRepository`は商品、女優関連、お気に入り、親投稿履歴を集約し、`PostCandidateSelectionService`がセール2、女優2、お気に入りセール1を決定的に選ぶ。
+- 30日親投稿、pending返信、非販売、URL・タイトル欠損、無効女優のみ、カテゴリ間重複を除外する。不足時は`category_shortage`を返し、水増ししない。
+
 ## セキュリティと配置
 
 - X API資格情報、アフィリエイトID、管理画面パスワードは環境変数で供給する。

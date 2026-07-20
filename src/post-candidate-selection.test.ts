@@ -1,0 +1,9 @@
+import assert from 'node:assert/strict';
+import { PostCandidateSelectionService, type CandidateSource } from './post-candidate-selection.js';
+const base: CandidateSource = { productId: 1, title: '架空作品', affiliateUrl: 'https://example.com', isSale: true, status: 'available', favorite: false, actressNames: [], enabledActressNames: [], actressPriority: 0, hasRecentParentPost: false, hasPendingReply: false };
+const rows: CandidateSource[] = Array.from({ length: 6 }, (_, index) => ({ ...base, productId: index + 1, title: `作品${index + 1}`, favorite: index === 4, actressNames: index < 3 ? ['女優'] : [], enabledActressNames: index < 3 ? ['女優'] : [], actressPriority: index === 1 ? 10 : 1, releaseDate: `2026-01-0${index + 1}`, discountPercent: index === 1 ? 30 : undefined, sampleVideoUrl: index === 2 ? 'https://example.com/video' : undefined }));
+const result = await new PostCandidateSelectionService({ listSelectable: async () => rows }).select();
+assert.equal(result.saleCandidates.length, 2); assert.equal(result.actressCandidates.length, 1); assert.equal(result.favoriteSaleCandidates.length, 1); assert.equal(new Set(result.selected.map((v) => v.productId)).size, result.selected.length); assert.equal(result.saleCandidates[0].productId, 2);
+const excluded = await new PostCandidateSelectionService({ listSelectable: async () => [{ ...base, productId: 9, hasRecentParentPost: true }, { ...base, productId: 10, hasPendingReply: true }, { ...base, productId: 11, affiliateUrl: null }] }).select();
+assert.equal(excluded.selected.length, 0); assert.equal(excluded.excludedCount, 3); assert.ok(excluded.warnings.length > 0);
+console.log('post candidate selection: ok');
