@@ -30,6 +30,24 @@ Railway（常駐プロセス） ──────────────┘   
 - SSLは `DATABASE_SSL=true` または `PGSSLMODE=require` 等で有効化する。証明書検証は既定で有効であり、`DATABASE_SSL_REJECT_UNAUTHORIZED=false` または `PGSSLMODE=no-verify` の明示設定時だけ無効にする。
 - DBの終了ハンドラは冪等で、Poolを終了するだけである。プロセス終了、HTTPサーバー停止、worker停止は将来のアプリ全体の終了オーケストレーションが担当する。業務テーブルはStep 1では作成しない。
 
+## 初期スキーマ（Step 2）
+
+```text
+products ─< product_actresses >─ actresses
+    │
+    ├─< favorites
+    └─< post_history
+
+settings（独立したシステム設定）
+```
+
+- `products` はFANZA商品IDを一意に保持する商品正本である。
+- `actresses` と `product_actresses` は複数女優と複数商品の関係を表す。
+- `favorites` は同期対象の商品を一意に保持し、商品削除時は連動削除する。
+- `post_history` はX投稿IDを一意に保持し、商品ごとの投稿日時から30日再投稿制限を判定できる。
+- `settings` はキーを主キーとするシステム設定である。
+- `products`、`actresses`、`favorites`、`post_history`、`settings` は更新時に`updated_at`を自動更新する。
+
 ## 投稿フロー
 
 1. スケジューラーが投稿エンジンを起動する。
