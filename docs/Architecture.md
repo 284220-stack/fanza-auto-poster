@@ -60,6 +60,10 @@ settings（独立したシステム設定）
 - 正規化は不正な候補を警告付きで除外し、1件の不正で全件を失敗させない。rawDataから認証情報・Cookie等を除外する。
 - FANZAへの実アクセス、HTML解析、Chrome拡張、商品保存、定期実行は後続Stepで実装する。
 
+## セール商品保存・更新（Step 4D）
+
+- Sale Providerの共通結果をProduct Service経由で保存する。既存商品は商品IDで取得し、Provider未取得の任意項目を保持した完全入力として更新する。
+
 ## 指定女優管理API（Step 3B）
 
 - dashboardは女優管理のHTTPルーティングだけを担当し、SQLは `ActressRepository`、入力正規化と業務ルールは `ActressService` に分離する。

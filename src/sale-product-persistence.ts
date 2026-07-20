@@ -1,0 +1,12 @@
+import type { Product, ProductInput } from './products.js';
+import type { ProductProvider, ProviderItem } from './providers.js';
+
+export type ProductWriter = { getByFanzaProductId(id: string): Promise<Product | undefined>; create(input: ProductInput): Promise<Product>; update(id: number, input: ProductInput): Promise<Product> };
+export type PersistenceResult = { fetchedCount:number; createdCount:number; updatedCount:number; skippedCount:number; failedCount:number; warnings:string[]; errors:Array<{productId:string;message:string}>; startedAt:string; completedAt:string };
+export async function persistSaleProducts(provider: ProductProvider, writer: ProductWriter): Promise<PersistenceResult> {
+ const startedAt=new Date().toISOString(); const fetched=await provider.fetch({saleOnly:true}); const result:PersistenceResult={fetchedCount:fetched.items.length,createdCount:0,updatedCount:0,skippedCount:0,failedCount:0,warnings:[...fetched.warnings],errors:[],startedAt,completedAt:startedAt}; const seen=new Set<string>();
+ for(const item of fetched.items){ if(seen.has(item.externalProductId)){result.skippedCount++;continue;} seen.add(item.externalProductId); if(!item.externalProductId||!item.title||!item.affiliateUrl){result.skippedCount++;result.warnings.push('保存に必要な商品情報が不足しています。');continue;} try { const current=await writer.getByFanzaProductId(item.externalProductId); const input=merge(current,item); if(current){await writer.update(current.id,input);result.updatedCount++;}else{await writer.create(input);result.createdCount++;} }catch{result.failedCount++;result.errors.push({productId:item.externalProductId||'unknown',message:'商品を保存できませんでした。'});} }
+ result.completedAt=new Date().toISOString(); return result;
+}
+function merge(current:Product|undefined,item:ProviderItem):ProductInput { return { fanzaProductId:item.externalProductId,title:item.title,productUrl:pick(item.productUrl,current?.productUrl)!,affiliateUrl:pick(item.affiliateUrl,current?.affiliateUrl),sampleVideoUrl:pick(item.sampleVideoUrl,current?.sampleVideoUrl),thumbnailUrl:pick(item.thumbnailUrl,current?.thumbnailUrl),price:pick(item.price,current?.price===null?null:Number(current?.price)),salePrice:pick(item.salePrice,current?.salePrice===null?null:Number(current?.salePrice)),isSale:true,releaseDate:pick(item.releaseDate,current?.releaseDate),status:'available' }; }
+function pick<T>(value:T|undefined,current:T|undefined|null){return typeof value==='string'&&!value.trim()?current:value??current;}
