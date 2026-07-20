@@ -58,4 +58,14 @@ npm run db:migrate:create -- <migration-name>
 
 Railway等でTLSが必要な場合は `DATABASE_SSL=true` を設定する。証明書検証は既定で有効であり、例外的に必要な場合だけ `DATABASE_SSL_REJECT_UNAUTHORIZED=false` を設定する。
 
+## セール同期の手動実行（Step 5A）
+
+`DATABASE_URL`、`DMM_API_ID`、`DMM_AFFILIATE_ID` を環境変数に設定したうえで、PowerShellから一回だけ実行します。
+
+```powershell
+npm run sync:sales
+```
+
+成功時の終了コードは0です。一部成功、失敗、または同一プロセスで実行中の場合は終了コード1です。Railway Schedulerを設定する後続Stepでは、スケジュールのコマンドに同じ `npm run sync:sales` を指定します。時刻・頻度の設定はこのStepでは行いません。
+
 既存の管理画面起動コマンドは `npm run dashboard`。認証情報、トークン、アフィリエイトID、パスワードはリポジトリへ追加せず、環境変数等で安全に管理する。

@@ -10,6 +10,8 @@ import { startWorker } from './worker.js';
 import { ActressRepository, ActressService, type Queryable } from './actresses.js';
 import { handleActressApiRequest } from './actress-api.js';
 import { getDatabasePool } from './db/pool.js';
+import { handleSaleSyncApiRequest } from './sale-sync-api.js';
+import { getSaleSyncExecutionService } from './sale-sync-execution.js';
 
 const publicDir = new URL('../public/', import.meta.url).pathname;
 const dataDir = process.env.APP_DATA_DIR ?? new URL('../data/', import.meta.url).pathname;
@@ -142,6 +144,11 @@ createServer(async (request, response) => {
         sendJson(response, result.status, result.body);
         return;
       }
+    }
+    if (url.pathname === '/api/sync/sales') {
+      const result = await handleSaleSyncApiRequest(request.method, getSaleSyncExecutionService());
+      sendJson(response, result.status, result.body);
+      return;
     }
     if (url.pathname === '/api/status') {
       const state = await loadState();
