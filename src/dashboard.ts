@@ -12,6 +12,14 @@ import { handleActressApiRequest } from './actress-api.js';
 import { getDatabasePool } from './db/pool.js';
 import { handleSaleSyncApiRequest } from './sale-sync-api.js';
 import { getSaleSyncExecutionService } from './sale-sync-execution.js';
+import { PostHistoryRepository } from './post-history.js';
+import { PostEligibilityService } from './post-eligibility.js';
+import { ReplyRetryService } from './reply-retry.js';
+import { ThreadPostPersistenceService } from './thread-post-persistence.js';
+import { PostExecutionOrchestrator } from './post-execution-orchestrator.js';
+import { handlePostExecutionApiRequest } from './post-execution-api.js';
+import { createXApiPostClient } from './x-api-adapter.js';
+import type { XPostClient } from './thread-post-execution.js';
 
 const publicDir = new URL('../public/', import.meta.url).pathname;
 const dataDir = process.env.APP_DATA_DIR ?? new URL('../data/', import.meta.url).pathname;
@@ -147,6 +155,20 @@ createServer(async (request, response) => {
     }
     if (url.pathname === '/api/sync/sales') {
       const result = await handleSaleSyncApiRequest(request.method, getSaleSyncExecutionService());
+      sendJson(response, result.status, result.body);
+      return;
+    }
+    if (url.pathname === '/api/posts/execute') {
+      let body: Record<string, unknown>;
+      try { body = await readJson(request); } catch { sendJson(response, 400, { message: 'リクエスト本文が不正です。' }); return; }
+      const dryRun = body.dryRun ?? (process.env.DRY_RUN ?? 'true').toLowerCase() !== 'false';
+      const client: XPostClient = dryRun
+        ? { createPost: async () => { throw new Error('dry run'); }, createReply: async () => { throw new Error('dry run'); } }
+        : createXApiPostClient();
+      const result = await handlePostExecutionApiRequest(request.method, body, () => {
+        const history = new PostHistoryRepository(getDatabasePool() as unknown as Queryable);
+        return new PostExecutionOrchestrator(new PostEligibilityService(history), new ReplyRetryService(history), new ThreadPostPersistenceService(history));
+      }, client);
       sendJson(response, result.status, result.body);
       return;
     }

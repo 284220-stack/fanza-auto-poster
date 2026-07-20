@@ -140,6 +140,11 @@ settings（独立したシステム設定）
 - `ReplyRetryService`は`pending_reply`の親履歴だけを取得し、親投稿を作り直さず既存X投稿IDへ返信する。dryRunはX API・履歴更新を行わず、失敗時もpending状態を維持する。
 - `PostEligibilityService`は親投稿だけを対象に、絶対時刻で既定30日以内の`posted`または`pending_reply`を再投稿禁止とする。分散ロックと候補選定への自動統合は未実装である。
 
+## 投稿実行フロー統合（Step 6G）
+
+- `PostExecutionOrchestrator`は適格性確認を先に実行し、pending_replyは返信再試行、再投稿期間中はブロック、その他は新規スレッド投稿へ既存サービスを委譲する。
+- Basic認証下の`POST /api/posts/execute`は安全な要約だけを返す。productId単位の同一プロセス内ロックがあり、分散ロック、動画、候補選定、スケジューラーは未実装である。
+
 ## セキュリティと配置
 
 - X API資格情報、アフィリエイトID、管理画面パスワードは環境変数で供給する。

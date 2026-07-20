@@ -2,6 +2,12 @@
 
 ## Phase 2: 投稿訴求基盤
 
+### Step 6G: 投稿実行フロー統合（完了）
+
+- `PostExecutionOrchestrator`とBasic認証下の`POST /api/posts/execute`を追加した。pending_replyを最優先で返信再試行し、30日再投稿禁止中はX APIを呼ばずブロックする。
+- dryRunでも適格性判定を行い、X API・DB更新を行わない。同一プロセス内のproductIdロックを持つが、動画・候補選定・スケジューラー・分散ロックは未実装である。
+- 次Step候補は、手動投稿APIの実環境dryRun確認と、将来のスケジューラーからの安全な呼出しである。
+
 ### Step 6F: 返信再試行・30日再投稿禁止（完了）
 
 - pending_replyの親履歴へ返信だけを再試行する`ReplyRetryService`と、親投稿を対象に既定30日を判定する`PostEligibilityService`を追加した。
