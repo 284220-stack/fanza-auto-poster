@@ -135,6 +135,11 @@ settings（独立したシステム設定）
 - `post_history`へ`execution_status`と`parent_history_id`を追加し、親投稿の`pending_reply`と返信成功後の`posted`を表す。dryRunは履歴保存しない。
 - 統合サービスは同一プロセス内でproductIdごとの実行をロックする。分散ロック、動画、実行API、投稿候補選定は未実装である。
 
+## 返信再試行・再投稿禁止（Step 6F）
+
+- `ReplyRetryService`は`pending_reply`の親履歴だけを取得し、親投稿を作り直さず既存X投稿IDへ返信する。dryRunはX API・履歴更新を行わず、失敗時もpending状態を維持する。
+- `PostEligibilityService`は親投稿だけを対象に、絶対時刻で既定30日以内の`posted`または`pending_reply`を再投稿禁止とする。分散ロックと候補選定への自動統合は未実装である。
+
 ## セキュリティと配置
 
 - X API資格情報、アフィリエイトID、管理画面パスワードは環境変数で供給する。

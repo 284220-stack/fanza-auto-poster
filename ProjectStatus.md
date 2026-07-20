@@ -2,6 +2,12 @@
 
 ## Phase 2: 投稿訴求基盤
 
+### Step 6F: 返信再試行・30日再投稿禁止（完了）
+
+- pending_replyの親履歴へ返信だけを再試行する`ReplyRetryService`と、親投稿を対象に既定30日を判定する`PostEligibilityService`を追加した。
+- pending_replyは実投稿済みとして新規親投稿を禁止し、返信失敗時はpendingを維持する。dryRunはX API・履歴更新を行わない。同一プロセス内ロックはあるが、分散ロックは未実装である。
+- migrationは実環境へ適用済み。動画、スケジューラー、候補選定、UIは未実装。次Step候補は適格性確認を手動・スケジューラー投稿フローへ接続することである。
+
 ### Step 6E: 実X APIアダプター・投稿履歴保存統合（完了）
 
 - OAuth環境変数を使う`XApiPostClient`、`post_history` Repository、商品ID単位の同一プロセスロックを持つ統合サービスを追加した。
