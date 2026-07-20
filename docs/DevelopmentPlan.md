@@ -27,6 +27,7 @@
 | 6J | 投稿候補dryRun実行プレビュー | 選定済み候補をdryRunの投稿予定として安全に確認する | 順序、件数、情報非露出、blocked/retry_reply |
 | 6K | 投稿スケジューラー実行基盤 | CLI/Railway Schedulerから一回だけpreviewまたはexecuteを起動する | モード、ロック、継続、Pool終了、終了コード |
 | 6L | Railway Scheduler実設定・preview運用確認 | Railway productionで既定previewを一回確認し、Scheduler設定案を残す | preview、候補0件、情報非露出、X API・履歴未更新 |
+| 7A | 管理画面GUI全面刷新・投稿内容履歴 | 7ページのhashルーティングUIと投稿履歴閲覧を提供する | UIルート、履歴API、本文保存、migration、情報非露出 |
 | 4F | 定期実行 | CronまたはRailwayスケジューラーからRunnerを起動 | 多重起動、再実行、失敗時 |
 | 4D | お気に入り同期 | Chrome拡張と同期API、認証情報非保存 | 抽出、API認証、upsert |
 | 5 | 商品取得アダプター | 状態、価格、セール/新作、動画、URLの正規化 | 正常、欠損、無効、販売終了 |

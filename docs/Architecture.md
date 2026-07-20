@@ -166,6 +166,10 @@ settings（独立したシステム設定）
 - Railway productionで既定の`npm run posts:run`を一回実行し、候補0件でもpreviewとして終了コード0で安全に終了することを確認した。`DRY_RUN=true`のためX API・投稿履歴は更新しない。
 - Schedulerは未有効化である。将来の設定は、単一インスタンスで前回終了後に次回を開始する一回実行コマンドとし、時刻・頻度は別途決定する。
 
+## 管理画面GUI刷新・投稿内容履歴（Step 7A）
+
+- 静的HTML/CSS/JSの管理画面はhashルーティングで単一ページを切り替え、API値は`textContent`で描画する。投稿本文は`post_history`へ保存し、一覧APIと詳細APIはBasic認証下で表示に必要な情報だけを返す。
+
 ## セキュリティと配置
 
 - X API資格情報、アフィリエイトID、管理画面パスワードは環境変数で供給する。

@@ -2,6 +2,13 @@
 
 ## Phase 2: 投稿訴求基盤
 
+### Step 7A: 管理画面GUI全面刷新・投稿内容履歴（完了）
+
+- 旧縦長画面を廃止し、固定サイドバーとhashルーティングでDashboard、商品管理、女優管理、投稿予定、投稿履歴、同期・実行、設定の7ページを選択表示するUIへ刷新した。
+- 親投稿単位の投稿履歴一覧と返信詳細を追加した。migrationは`post_text`と`character_count`をNULL互換で追加し、実投稿時の親/返信本文・文字数を保存する。dryRunは既存方針どおり保存しない。
+- Basic認証下の一覧・詳細APIはdateFrom/dateTo/status/actress/product/pendingReply/page/limit（上限100）を検証し、パラメータ化クエリで複合フィルターを処理する。
+- 実ブラウザを直接操作する手段は利用できなかったため、静的UIルート検証、JavaScript構文検査、API/UI単体テストを代替確認とした。実X投稿、DRY_RUN=false、Scheduler有効化、動画、候補選定・30日ルール変更は未実施である。次Step候補は実ブラウザでの運用確認後のUI改善である。
+
 ### Step 6L: Railway Scheduler実設定・preview運用確認（完了）
 
 - Railway production上で`npm run posts:run`を一回だけpreview実行した。`selectedCount`、`attemptedCount`、`dryRunCount`、`blockedCount`、`retryReplyCount`、`failedCount`はいずれも0で、候補0件は正常終了として扱った。
