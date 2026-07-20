@@ -44,4 +44,18 @@ npm run build
 git diff --check
 ```
 
+## PostgreSQL（Step 1）
+
+`.env.example` を参考に、ローカルではGit管理しない `.env` に `DATABASE_URL` を設定する。マイグレーションコマンドはこのファイルを読み込む一方、アプリのDB接続モジュールは `process.env` だけを参照する。ローカルでアプリからDBを使う場合はPowerShellで `DATABASE_URL` を環境変数として設定する。既存アプリは未設定でも起動するが、DB接続が必要な処理は明確な設定エラーになる。
+
+```powershell
+npm run db:migrate
+npm run db:migrate:down
+npm run db:migrate:create -- <migration-name>
+```
+
+`db:migrate:create` はTypeScriptのマイグレーション雛形を `migrations/` に作成する。Step 1では業務テーブルを作成しない。Railwayでは `DATABASE_URL` をサービス変数として設定し、本番のSSL接続を確認する。
+
+Railway等でTLSが必要な場合は `DATABASE_SSL=true` を設定する。証明書検証は既定で有効であり、例外的に必要な場合だけ `DATABASE_SSL_REJECT_UNAUTHORIZED=false` を設定する。
+
 既存の管理画面起動コマンドは `npm run dashboard`。認証情報、トークン、アフィリエイトID、パスワードはリポジトリへ追加せず、環境変数等で安全に管理する。

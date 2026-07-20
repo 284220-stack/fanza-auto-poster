@@ -21,6 +21,15 @@ Railway（常駐プロセス） ──────────────┘   
 | PostgreSQL | 各業務データの正本 |
 | 常駐スケジューラー | 定期実行と重複起動防止 |
 
+## PostgreSQL接続基盤（Step 1）
+
+- DBモジュールは `process.env` を参照するだけで、`.env` を読み込まない。既存のYahoo!メール・X設定の環境変数読込み方針を変更しない。
+- `DATABASE_URL` が設定されている場合だけ、`pg.Pool` を遅延生成する。アプリ起動時にはDB接続を試行しないため、未設定でも既存機能は起動できる。
+- DB必須処理は `getDatabasePool()` または `checkDatabaseConnection()` を利用する。未設定時は接続文字列を含まない `DATABASE_URL is required for database operations.` エラーを返す。
+- 接続確認は `SELECT 1` を実行する。接続失敗時は接続文字列やDBドライバーの詳細を露出せず、一定の接続確認エラーを返す。
+- SSLは `DATABASE_SSL=true` または `PGSSLMODE=require` 等で有効化する。証明書検証は既定で有効であり、`DATABASE_SSL_REJECT_UNAUTHORIZED=false` または `PGSSLMODE=no-verify` の明示設定時だけ無効にする。
+- DBの終了ハンドラは冪等で、Poolを終了するだけである。プロセス終了、HTTPサーバー停止、worker停止は将来のアプリ全体の終了オーケストレーションが担当する。業務テーブルはStep 1では作成しない。
+
 ## 投稿フロー
 
 1. スケジューラーが投稿エンジンを起動する。
