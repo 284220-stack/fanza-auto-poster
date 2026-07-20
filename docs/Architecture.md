@@ -69,6 +69,13 @@ settings（独立したシステム設定）
 
 - `SaleSyncRunner` はProvider、ProductWriter、任意LoggerをDIし、`persistSaleProducts`の結果を実行時間と同期status付きのSyncResultへ集計する。Cron登録は後続である。
 
+## セール同期の実行基盤（Step 5A）
+
+- `SaleSyncExecutionService` は `FanzaSaleProvider`、`ProductService` を実装した `ProductWriter`、`SaleSyncRunner` を組み立て、`persistSaleProducts(provider, writer)` を経由して一回の同期を実行する。実行基盤自身はSQLを直接扱わず、保存処理はProductWriter経由で行う。
+- 同期ロックはプロセス内の `SaleSyncExecutionService` インスタンスに限定する。実行中の再要求は開始せず、HTTPでは409として返す。`finally`で解除するため、成功・失敗のいずれでも後続実行は可能になる。複数Railwayインスタンス間の分散ロックは未実装である。
+- dashboardのBasic認証配下に `POST /api/sync/sales` を置く。完了・一部成功は安全な件数要約を200で返し、実行中は409、設定不足・内部失敗・同期失敗は詳細を伏せて500で返す。GETは実行しない。
+- `npm run sync:sales` は一回だけ実行してPoolを終了するCLIである。成功は終了コード0、一部成功・失敗・実行中は終了コード1とし、標準出力には安全な件数要約だけを出す。Railway Schedulerは後続作業でこのコマンドを実行する。
+
 ## 指定女優管理API（Step 3B）
 
 - dashboardは女優管理のHTTPルーティングだけを担当し、SQLは `ActressRepository`、入力正規化と業務ルールは `ActressService` に分離する。

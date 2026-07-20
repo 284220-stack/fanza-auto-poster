@@ -1,5 +1,13 @@
 # Project Status
 
+## Step 5A: セール同期の実行基盤（完了）
+
+- `src/sale-sync-execution.ts` に、`FanzaSaleProvider`、`ProductService`/`ProductRepository` による `ProductWriter`、`SaleSyncRunner` を組み立てる実行サービスを追加した。公開契約は `SaleSyncExecutionService.run(): Promise<SaleSyncExecutionResult>` であり、開始済み結果または `already_running` を返す。
+- `src/sale-sync-api.ts` とdashboardの最小ルーティングにより、Basic認証配下の `POST /api/sync/sales` を追加した。安全な同期件数要約だけを返し、実行中は409、設定不足・同期失敗・内部失敗は500で返す。GETでは実行しない。
+- `src/sync-sales.ts` と `npm run sync:sales` を追加した。CLIは一回だけ同期してDB Poolを終了し、成功時は0、一部成功・失敗時は1で終了する。
+- 多重起動防止は単一プロセス内ロックであり、複数サーバー間の分散ロックは未実装である。Railway Schedulerの実設定、実行頻度、女優との関連付け、投稿処理は未実装である。
+- 次のStep候補は、Railway Schedulerの実設定またはセール同期の運用監視・分散ロック方針の確定である。
+
 ## 現在地
 
 Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先する自己見積もり、実装順序、中断、コミットのルールを追加した。Step 3A〜3CとStep 4A〜4Eは実装済みである。
