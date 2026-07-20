@@ -10,7 +10,9 @@
 | 3B | 指定女優管理API | 指定女優を操作する安全なHTTP API。DB未設定時もdashboardは起動可能 | API成功・入力不正・未検出・重複・削除競合・DB障害 |
 | 3C | 指定女優管理画面 | 指定女優の追加・編集・検索・絞込み・有効化・無効化・削除を行う日本語UI | UI操作、aliases変換、APIエラー、読み込み状態、XSS対策 |
 | 4A | 商品データ基盤 | productsのRepository・Service、入力検証、重複・存在確認 | Repository、URL・価格検証、重複、未検出 |
-| 4B | お気に入り同期 | Chrome拡張と同期API、認証情報非保存 | 抽出、API認証、upsert |
+| 4B | 商品取得Provider基盤 | 共通モデル、正規化、Provider Registry、FakeProvider | 正規化、部分成功、Registry、取得条件 |
+| 4C | FANZAセール取得Provider | 許可された方法によるセール候補取得Provider | 取得結果、正規化、異常時 |
+| 4D | お気に入り同期 | Chrome拡張と同期API、認証情報非保存 | 抽出、API認証、upsert |
 | 5 | 商品取得アダプター | 状態、価格、セール/新作、動画、URLの正規化 | 正常、欠損、無効、販売終了 |
 | 6 | 選定・条件判定 | 3区分、最大5、候補不足、重複防止 | 枠境界、30日、文面、除外 |
 | 7 | 親投稿・返信 | 【PR】動画親投稿と親ID返信 | 文面、動画なし、返信先、DRY_RUN |
