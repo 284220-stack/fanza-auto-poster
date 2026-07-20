@@ -5,6 +5,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { ImapFlow } from 'imapflow';
 import { TwitterApi } from 'twitter-api-v2';
 import { loadState, todayKey } from './state.js';
+import { fetchOfficialSaleCandidates, isOfficialSaleUrl } from './official.js';
 import { startWorker } from './worker.js';
 
 const publicDir = new URL('../public/', import.meta.url).pathname;
@@ -12,7 +13,7 @@ const dataDir = process.env.APP_DATA_DIR ?? new URL('../data/', import.meta.url)
 const envPath = join(dataDir, 'settings.env');
 const mime: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8' };
 const secretKeys = new Set(['YAHOO_IMAP_PASSWORD', 'X_APP_KEY', 'X_APP_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET']);
-const editableKeys = ['YAHOO_IMAP_USER', 'YAHOO_IMAP_PASSWORD', 'X_APP_KEY', 'X_APP_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET', 'POLL_MINUTES', 'DAILY_SALE_LIMIT', 'DAILY_NEW_RELEASE_LIMIT', 'DISCLOSURE', 'DRY_RUN'];
+const editableKeys = ['YAHOO_IMAP_USER', 'YAHOO_IMAP_PASSWORD', 'X_APP_KEY', 'X_APP_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET', 'POLL_MINUTES', 'DAILY_SALE_LIMIT', 'DAILY_NEW_RELEASE_LIMIT', 'DISCLOSURE', 'DRY_RUN', 'OFFICIAL_SALE_MONITOR_ENABLED', 'OFFICIAL_SALE_URLS'];
 
 async function readEnv() {
   try {
@@ -29,6 +30,10 @@ function settingSummary(values: Record<string, string>) {
     newReleaseLimit: Number(values.DAILY_NEW_RELEASE_LIMIT ?? 3),
     disclosure: values.DISCLOSURE ?? '#PR',
     dryRun: (values.DRY_RUN ?? 'true').toLowerCase() !== 'false',
+    officialSaleMonitor: {
+      enabled: (values.OFFICIAL_SALE_MONITOR_ENABLED ?? 'false').toLowerCase() === 'true',
+      urls: values.OFFICIAL_SALE_URLS ?? ''
+    },
     configured: Object.fromEntries([...secretKeys, 'YAHOO_IMAP_USER'].map((key) => [key, Boolean(values[key])]))
   };
 }
@@ -60,6 +65,11 @@ async function saveSettings(input: Record<string, unknown>) {
   values.TARGET_KEYWORDS ??= 'FANZA,DMM,セール,新作,新製品,新着';
   values.YAHOO_IMAP_HOST ??= 'imap.mail.yahoo.co.jp';
   values.YAHOO_IMAP_PORT ??= '993';
+  if ((values.OFFICIAL_SALE_MONITOR_ENABLED ?? 'false').toLowerCase() === 'true') {
+    const urls = (values.OFFICIAL_SALE_URLS ?? '').split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+    const invalid = urls.filter((url) => !isOfficialSaleUrl(url));
+    if (invalid.length) throw new Error(`公式DMM/FANZAドメイン以外のURLは保存できません: ${invalid.join(', ')}`);
+  }
   await mkdir(dataDir, { recursive: true });
   await writeFile(envPath, `${Object.entries(values).map(([key, value]) => `${key}=${value}`).join('\n')}\n`, { mode: 0o600 });
   return settingSummary(values);
@@ -80,6 +90,13 @@ async function testX(values: Record<string, string>) {
   requireValues(values, ['X_APP_KEY', 'X_APP_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET']);
   const client = new TwitterApi({ appKey: values.X_APP_KEY, appSecret: values.X_APP_SECRET, accessToken: values.X_ACCESS_TOKEN, accessSecret: values.X_ACCESS_SECRET });
   await client.v2.me();
+}
+
+async function testOfficialSalePages(values: Record<string, string>) {
+  const urls = (values.OFFICIAL_SALE_URLS ?? '').split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+  if (!urls.length) throw new Error('公式セールページURLを入力してください。');
+  const candidates = await fetchOfficialSaleCandidates(urls);
+  return candidates.length;
 }
 
 function isAuthorized(request: IncomingMessage) {
@@ -120,6 +137,11 @@ createServer(async (request, response) => {
     if (url.pathname === '/api/test/x' && request.method === 'POST') {
       await testX(await readEnv());
       sendJson(response, 200, { message: 'Xアカウントに接続できました。' });
+      return;
+    }
+    if (url.pathname === '/api/test/official-sales' && request.method === 'POST') {
+      const count = await testOfficialSalePages(await readEnv());
+      sendJson(response, 200, { message: `公式セールページに接続できました。候補 ${count} 件を検出しました。` });
       return;
     }
     const requested = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);

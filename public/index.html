@@ -54,7 +54,9 @@
             <label>広告表記<input id="settingDisclosure" name="DISCLOSURE" type="text" value="#PR" /></label>
           </div>
           <label class="toggle"><input id="dryRun" name="DRY_RUN" type="checkbox" checked /><span></span><b>テスト運転にする</b><em>Xには投稿せず、投稿予定だけを記録します。</em></label>
-          <div class="actions"><button class="button primary" type="submit">設定を保存</button><button id="testYahoo" class="button" type="button">Yahoo!メールを接続テスト</button><button id="testX" class="button" type="button">Xを接続テスト</button><p id="formMessage" role="status"></p></div>
+          <label class="toggle"><input id="officialSaleMonitor" name="OFFICIAL_SALE_MONITOR_ENABLED" type="checkbox" /><span></span><b>公式セールページを監視する</b><em>DMM/FANZA公式ドメインだけを定期確認し、候補・履歴に追加します。</em></label>
+          <label class="wide-label">公式セールページURL（1行またはカンマ区切りで複数指定）<textarea id="officialSaleUrls" name="OFFICIAL_SALE_URLS" rows="3" placeholder="https://www.dmm.co.jp/... または https://www.fanza.co.jp/..."></textarea></label>
+          <div class="actions"><button class="button primary" type="submit">設定を保存</button><button id="testYahoo" class="button" type="button">Yahoo!メールを接続テスト</button><button id="testX" class="button" type="button">Xを接続テスト</button><button id="testOfficialSales" class="button" type="button">公式セールページを接続テスト</button><p id="formMessage" role="status"></p></div>
         </form>
       </section>
 
