@@ -3,7 +3,7 @@
 ## 必要なソフトウェア
 
 - Git
-- Node.js（プロジェクトが要求するLTS版）とnpm
+- Node.js 20 LTS とnpm
 - Visual Studio Code
 - VS Code用Codex拡張
 
@@ -166,5 +166,9 @@ Railway productionで`npm run posts:run`を一回実行し、候補0件・各件
 ## 管理画面・投稿履歴（Step 7A）
 
 `npm run db:migrate`で投稿本文・文字数保存用migrationを適用し、`npm run dashboard`で管理画面を起動します。Basic認証が設定されている場合は認証後に、`#dashboard`、`#products`、`#actresses`、`#post-plan`、`#post-history`、`#operations`、`#settings`を確認できます。
+
+## Railway Node.js とmigration（Step 7B-1）
+
+Railway のNixpacksビルドでは `package.json` の `engines.node` を唯一のNode.jsバージョン指定として使用する。本プロジェクトはNode.js 20 LTSを要求する。productionのmigrationは、Node.js 20で稼働するデプロイを確認してから、Railwayのproduction環境変数を使って `npm run db:migrate` を一回だけ実行する。手動SQLや`db:migrate:down`は使わない。
 
 投稿履歴は`GET /api/post-history`で安全な一覧、`GET /api/post-history/:id`で詳細を取得します。一覧では`dateFrom`、`dateTo`、`status`、`actress`、`product`、`pendingReply`、`page`、`limit`を指定できます。既定のDRY_RUNでは実投稿も履歴保存も行いません。確認時に`DRY_RUN=false`へ変更したり、実投稿を実行したりしないでください。

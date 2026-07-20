@@ -166,6 +166,11 @@ settings（独立したシステム設定）
 - Railway productionで既定の`npm run posts:run`を一回実行し、候補0件でもpreviewとして終了コード0で安全に終了することを確認した。`DRY_RUN=true`のためX API・投稿履歴は更新しない。
 - Schedulerは未有効化である。将来の設定は、単一インスタンスで前回終了後に次回を開始する一回実行コマンドとし、時刻・頻度は別途決定する。
 
+## Railway runtime compatibility（Step 7B-1）
+
+- RailwayのNixpacksビルドは`package.json`の`engines.node`でNode.js 20 LTSを選択する。Dockerfile、Nixpacks設定、環境変数による重複したバージョン指定は置かない。
+- production schemaの変更は、リポジトリの`npm run db:migrate`だけで適用する。適用後は読み取り専用の確認でカラム、制約、migration履歴を検証する。
+
 ## 管理画面GUI刷新・投稿内容履歴（Step 7A）
 
 - 静的HTML/CSS/JSの管理画面はhashルーティングで単一ページを切り替え、API値は`textContent`で描画する。投稿本文は`post_history`へ保存し、一覧APIと詳細APIはBasic認証下で表示に必要な情報だけを返す。
