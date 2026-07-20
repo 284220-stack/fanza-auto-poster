@@ -47,11 +47,13 @@
 
 - 途中Stepを再開するときは、実装前に必ず次の順で確認する。
   1. 現在のブランチ（`git branch --show-current`）
-  2. `ProjectStatus.md`
-  3. `git diff`
-  4. `git status`
+  2. `git diff --cached`
+  3. `ProjectStatus.md`
+  4. `git diff`
+  5. `git status`
 - `ProjectStatus.md` だけを信頼しない。実際の差分である `git diff` を正とし、進捗文書との不一致があれば差分を優先してから実装を再開する。
 - 想定したfeatureブランチ以外、特に`main`では途中Stepの作業を開始しない。
+- 途中実装でも `git add` してよい。未追跡ファイルを途中状態のまま放置しない。ただしCompletion Gate通過前はコミット、push、PRを禁止する。
 
 ## 投稿安全性
 
