@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import { ProductError, ProductRepository, ProductService, type Product, type ProductInput } from './products.js';
+import type { Queryable } from './actresses.js';
+
+const product = (id = 1): Product => ({ id, fanzaProductId: 'abc', title: '商品', productUrl: 'https://example.test/product', affiliateUrl: null, sampleVideoUrl: null, thumbnailUrl: null, price: '1000.00', salePrice: null, isSale: false, releaseDate: null, status: 'available', createdAt: '', updatedAt: '' });
+const input = (): ProductInput => ({ fanzaProductId: ' abc ', title: ' 商品 ', productUrl: 'https://example.test/product', price: 1000, salePrice: 800, isSale: true, status: 'available' });
+const calls: Array<{ sql: string; values?: readonly unknown[] }> = [];
+const db: Queryable = { async query<T>(sql: string, values?: readonly unknown[]) { calls.push({ sql, values }); if (sql.includes('EXISTS')) return { rows: [{ exists: true }] as T[] }; if (sql.startsWith('DELETE')) return { rows: [{ id: 1 }] as T[] }; return { rows: [product()] as T[] }; } };
+const repo = new ProductRepository(db);
+await repo.list(); await repo.find(1); await repo.findByFanzaProductId('abc'); await repo.findByProductUrl('https://example.test/product'); assert.equal(await repo.exists('abc'), true); await repo.create({ ...input(), affiliateUrl: null, sampleVideoUrl: null, thumbnailUrl: null, releaseDate: null, price: 1000, salePrice: 800, isSale: true, status: 'available' }); await repo.update(1, { ...input(), affiliateUrl: null, sampleVideoUrl: null, thumbnailUrl: null, releaseDate: null, price: 1000, salePrice: 800, isSale: true, status: 'available' }); await repo.updateSale(1, 800, true); await repo.updateSampleVideo(1, 'https://example.test/video'); await repo.remove(1);
+assert.ok(calls.every((call) => !/\$\{/.test(call.sql))); assert.ok(calls.filter((call) => call.values).length >= 9);
+const service = new ProductService(repo);
+const created = await service.create(input()); assert.equal(created.id, 1); assert.equal(calls.at(-1)?.values?.[0], 'abc');
+await assert.rejects(service.create({ ...input(), title: ' ' }), ProductError);
+await assert.rejects(service.create({ ...input(), productUrl: 'ftp://example.test' }), ProductError);
+await assert.rejects(service.create({ ...input(), price: -1 }), ProductError);
+await assert.rejects(service.create({ ...input(), salePrice: -1 }), ProductError);
+await assert.rejects(service.create({ ...input(), salePrice: 1001 }), ProductError);
+const duplicateRepo = new ProductRepository({ async query<T>() { const error = Object.assign(new Error('duplicate'), { code: '23505' }); throw error as never; } });
+await assert.rejects(new ProductService(duplicateRepo).create(input()), (error: unknown) => error instanceof ProductError && error.status === 409);
+const missingRepo = new ProductRepository({ async query<T>() { return { rows: [] as T[] }; } });
+await assert.rejects(new ProductService(missingRepo).update(99, input()), (error: unknown) => error instanceof ProductError && error.status === 404);
+console.log('products: ok');

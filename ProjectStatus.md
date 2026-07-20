@@ -2,7 +2,7 @@
 
 ## 現在地
 
-Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先する自己見積もり、実装順序、中断、コミットのルールを追加した。Step 3A〜3C（指定女優データ基盤・API・管理画面）は実装済みである。既存のYahoo!メール監視、JSON状態保存、投稿処理は変更していない。
+Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先する自己見積もり、実装順序、中断、コミットのルールを追加した。Step 3A〜3C（指定女優管理）とStep 4A（商品データ基盤）は実装済みである。既存のYahoo!メール監視、JSON状態保存、投稿処理は変更していない。
 
 ## Sprint 0の実施内容
 
@@ -31,6 +31,12 @@ Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先
 - 削除確認と無効化の推奨、通信中の操作無効化、成功・エラー・空一覧の表示を追加した。DOM APIと`textContent`を使用し、API値をHTMLとして挿入しない。
 - 指定女優管理機能はDB・Repository／Service・API・UIまで完成した。
 
+## Step 4Aの実装内容
+
+- productsテーブル用のProduct Repositoryを追加し、一覧・ID／FANZA商品ID／URL取得、存在確認、登録、更新、セール・サンプル動画更新、削除を実装した。
+- Product Serviceでタイトル、FANZA商品ID、URL、価格、セール価格、商品状態を正規化・検証し、重複・未検出を安全な業務エラーとして扱う。
+- 商品取得、FANZAアクセス、Chrome拡張、お気に入り同期API、X投稿は未実装である。
+
 ## Step 2の実装内容
 
 - node-pg-migrateの初期マイグレーションで、`products`、`actresses`、`product_actresses`、`favorites`、`post_history`、`settings` を追加した。
@@ -57,7 +63,7 @@ Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先
 
 ## 未実装事項
 
-- 商品RepositoryとCRUD、商品取得・正規化、アフィリエイトURL・動画検証
+- 商品取得・正規化、アフィリエイトURL・動画の実データ検証
 - Chrome拡張、お気に入り同期API
 - 3区分選定、30日制限、文面重複検出、動画付き親投稿と返信投稿
 - 分析エンジン、新しい管理画面、Railway PostgreSQL連携
@@ -71,4 +77,4 @@ Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先
 
 ## 次のStep
 
-Step 4候補: Chrome拡張からFANZAお気に入りを同期する機能と同期APIを実装する。
+Step 4B候補: Chrome拡張からFANZAお気に入りを同期する機能と同期APIを実装する。
