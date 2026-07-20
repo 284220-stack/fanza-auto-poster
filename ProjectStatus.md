@@ -1,5 +1,11 @@
 # Project Status
 
+## Step 5E: DMM価格文字種診断（完了）
+
+- `invalid_price` / `price_missing` の安全な価格診断へ、文字クラスパターン、ASCII/全角数字、空白、カンマ、ピリオド、通貨記号、日本語文字、範囲記号、その他記号の件数を追加した。数字や価格実値は出力しない。
+- `priceCharacterPatterns`、`priceCharacterCounts`、`unknownPriceCodePoints` を `sync:sales:check` の要約へ追加した。未認識文字は `U+` コードポイントだけを集計し、数字のコードポイントは出力しない。
+- 価格変換ルール、セール判定、保存処理は変更していない。次の実環境check-onlyで、`current_price` / `list_price` の4文字の文字種を安全に確認する。
+
 ## Step 5D: DMM価格形式診断と安全な価格変換（完了）
 
 - `src/dmm-price.ts` にDMM API専用の価格変換を追加した。数値、数字文字列、カンマ区切り、円接尾辞、円記号、前後空白、全角数字を安全に数値化し、有限かつ0以上だけを許可する。
