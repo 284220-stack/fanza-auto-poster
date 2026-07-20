@@ -152,3 +152,9 @@ npm run sync:sales:check -- --persist
 ## X投稿（Step 6E）
 
 実投稿には`X_APP_KEY`、`X_APP_SECRET`、`X_ACCESS_TOKEN`、`X_ACCESS_SECRET`と、明示的な`DRY_RUN=false`が必要です。既定の`DRY_RUN=true`ではX API通信も投稿履歴保存も行いません。値は表示・コミットしないでください。
+
+## 投稿スケジューラーCLI（Step 6K）
+
+`npm run posts:run`は既定でpreviewを一回実行し、X APIと投稿履歴を更新しません。`npm run posts:run -- --execute`はexecuteモードを選びますが、これだけで`DRY_RUN`をfalseにはしません。実投稿には環境変数で明示した`DRY_RUN=false`と必要なX認証情報が必要です。
+
+件数は`npm run posts:run -- --limit 5`または`--limit=5`で指定でき、上限は5です。出力は件数、productId、カテゴリ、action、statusだけの安全な要約です。preview成功とexecute全成功は終了コード0、executeでpartial_successまたはblockedを含む場合、設定不足・全失敗・already_runningは終了コード1です。CLIは終了時にDB Poolを閉じます。Railway Schedulerの画面設定と分散ロックは未実装です。

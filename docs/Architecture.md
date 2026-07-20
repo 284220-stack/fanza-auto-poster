@@ -155,6 +155,12 @@ settings（独立したシステム設定）
 - `PostCandidatePreviewService`は選定済み候補をタイトル解析、キラーメッセージ、投稿テンプレート、OrchestratorのdryRunへ順に渡す。本文・URLを返さず、件数、文字数、action、statusだけを返す。
 - X APIと投稿履歴は更新せず、候補不足・blocked・retry_replyを安全な要約として引き継ぐ。
 
+## 投稿スケジューラー実行基盤（Step 6K）
+
+- `ScheduledPostRunService`は候補選定の順序を保ち、最大5件をタイトル解析・キラーメッセージ・投稿テンプレートを経由して既存`PostExecutionOrchestrator`へ渡す。previewが既定で、executeは明示指定時のみ選べる。
+- previewは常にdryRunとしてOrchestratorを通し、X API・投稿履歴を更新しない。executeも`DRY_RUN=false`が環境変数で明示されない限りdryRunのままであり、30日再投稿禁止とpending_reply優先はOrchestratorへ委譲する。
+- 同一プロセス内の実行ロックでpreview/executeを問わず重複起動を拒否し、finallyで解除する。分散ロックは未実装のため、Railway Schedulerは単一インスタンスで起動する必要がある。
+
 ## セキュリティと配置
 
 - X API資格情報、アフィリエイトID、管理画面パスワードは環境変数で供給する。
