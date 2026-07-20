@@ -1,5 +1,12 @@
 # Project Status
 
+## Step 5C: Sale Provider警告分類診断（完了）
+
+- 実環境persistは完了したが、`fetchedCount: 0` と `warningsCount: 21` が確認されたため、`FanzaSaleProvider` の除外警告を安全なreason codeへ分類した。
+- `sync:sales:check` は既存の状態・件数出力に加え、`warningReasons: reason=count` を出力する。商品名、商品ID、URL、価格、キャンペーン名、認証情報、接続文字列は出力しない。
+- 分類は `campaign_missing`、`campaign_out_of_period`、`price_missing`、`invalid_price`、`price_not_discounted`、`required_field_missing`、`invalid_url`、`normalization_failed` である。保存処理とセール判定ルールは変更していない。
+- 次のStep候補は、実環境でcheck-onlyを再実行し、最多のreason codeを確認したうえで、必要なら別Stepで取得条件またはセール判定の設計を見直すことである。
+
 ## Step 5B: 実環境スモークテスト基盤（完了）
 
 - `src/sale-sync-smoke-test.ts` と `src/sync-sales-check.ts` に、設定・PostgreSQL・DMM ItemList・保存処理を安全に診断するCLI基盤を追加した。

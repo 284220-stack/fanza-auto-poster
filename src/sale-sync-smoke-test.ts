@@ -19,6 +19,7 @@ export type SaleSyncSmokeTestResult = {
   skippedCount: number;
   failedCount: number;
   warningsCount: number;
+  warningReasons: Record<string, number>;
   errorsCount: number;
   exitCode: 0 | 1;
 };
@@ -36,7 +37,7 @@ function blankResult(): SaleSyncSmokeTestResult {
   return {
     configuration: 'not_run', database: 'not_run', provider: 'not_run', persistence: 'not_run',
     fetchedCount: 0, createdCount: 0, updatedCount: 0, skippedCount: 0, failedCount: 0,
-    warningsCount: 0, errorsCount: 0, exitCode: 1
+    warningsCount: 0, warningReasons: {}, errorsCount: 0, exitCode: 1
   };
 }
 
@@ -60,6 +61,23 @@ function defaultDatabaseCheck(environment: NodeJS.ProcessEnv) {
 
 function providerFailure(result: ProviderResult) {
   return Boolean(result.error);
+}
+
+const safeWarningCodes = new Set([
+  'campaign_missing', 'campaign_out_of_period', 'price_missing', 'invalid_price',
+  'price_not_discounted', 'required_field_missing', 'invalid_url', 'normalization_failed'
+]);
+
+export function summarizeWarningReasons(warnings: readonly string[]) {
+  return warnings.reduce<Record<string, number>>((counts, warning) => {
+    const code = safeWarningCodes.has(warning) ? warning : 'normalization_failed';
+    counts[code] = (counts[code] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+function addWarningReasons(target: Record<string, number>, warnings: readonly string[]) {
+  for (const [code, count] of Object.entries(summarizeWarningReasons(warnings))) target[code] = (target[code] ?? 0) + count;
 }
 
 export async function runSaleSyncSmokeTest(options: SaleSyncSmokeTestOptions = {}): Promise<SaleSyncSmokeTestResult> {
@@ -93,6 +111,7 @@ export async function runSaleSyncSmokeTest(options: SaleSyncSmokeTestOptions = {
       return result;
     }
     result.warningsCount = providerResult.warnings.length;
+    addWarningReasons(result.warningReasons, providerResult.warnings);
     if (providerFailure(providerResult)) {
       result.provider = 'failed';
       result.errorsCount = 1;
@@ -122,6 +141,7 @@ export async function runSaleSyncSmokeTest(options: SaleSyncSmokeTestOptions = {
       result.skippedCount = sync.skippedCount;
       result.failedCount = sync.failedCount;
       result.warningsCount += sync.warnings.length;
+      addWarningReasons(result.warningReasons, sync.warnings);
       result.errorsCount += sync.errors.length;
       result.exitCode = sync.status === 'success' ? 0 : 1;
       return result;
@@ -142,6 +162,7 @@ export async function runSaleSyncSmokeTest(options: SaleSyncSmokeTestOptions = {
 }
 
 export function formatSaleSyncSmokeTestResult(result: SaleSyncSmokeTestResult) {
+  const warningReasons = Object.entries(result.warningReasons).sort(([left], [right]) => left.localeCompare(right)).map(([code, count]) => `${code}=${count}`).join(',') || 'none';
   return [
     `configuration: ${result.configuration}`,
     `database: ${result.database}`,
@@ -154,6 +175,7 @@ export function formatSaleSyncSmokeTestResult(result: SaleSyncSmokeTestResult) {
     `skippedCount: ${result.skippedCount}`,
     `failedCount: ${result.failedCount}`,
     `warningsCount: ${result.warningsCount}`,
+    `warningReasons: ${warningReasons}`,
     `errorsCount: ${result.errorsCount}`
   ].join('\n');
 }
