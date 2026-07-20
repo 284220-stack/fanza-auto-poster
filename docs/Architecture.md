@@ -48,6 +48,12 @@ settings（独立したシステム設定）
 - `settings` はキーを主キーとするシステム設定である。
 - `products`、`actresses`、`favorites`、`post_history`、`settings` は更新時に`updated_at`を自動更新する。
 
+## 商品データ基盤（Step 4A）
+
+- `ProductRepository` はproductsテーブルの一覧・取得・存在確認・登録・更新・セール更新・サンプル動画更新・削除だけを担当し、すべてのSQLをパラメータ化する。
+- `ProductService` はタイトル、FANZA商品ID、URL、価格、セール価格、商品状態を正規化・検証する。重複と存在しない更新は安全な業務エラーとして扱う。
+- 商品取得、FANZAアクセス、Chrome拡張、HTTP API、管理画面、X投稿はこの基盤の対象外である。
+
 ## 指定女優管理API（Step 3B）
 
 - dashboardは女優管理のHTTPルーティングだけを担当し、SQLは `ActressRepository`、入力正規化と業務ルールは `ActressService` に分離する。
