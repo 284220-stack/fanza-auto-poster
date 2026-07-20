@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import { ReplyRetryService } from './reply-retry.js';
+import { PostEligibilityService } from './post-eligibility.js';
+
+const pending = { id: 1, productId: 1, xPostId: 'parent-id', postType: 'parent' as const, executionStatus: 'pending_reply' as const, parentHistoryId: null, postedAt: '2026-01-01T00:00:00Z' };
+const calls: string[] = [];
+const history = { findPendingReply: async (id: number) => id === 1 ? pending : undefined, hasWithin: async (id: number) => id === 2, create: async () => { calls.push('history'); return { id: 2 }; }, markReplyCompleted: async () => { calls.push('complete'); } } as never;
+const client = { createPost: async () => { throw new Error('parent must not run'); }, createReply: async (_text: string, id: string) => { calls.push(`reply:${id}`); return { postId: 'reply-id', textLength: 1, createdAt: 'now' }; } };
+const retry = new ReplyRetryService(history);
+const result = await retry.run({ productId: 1, affiliateUrl: 'https://example.com/a', dryRun: false, client });
+assert.equal(result.status, 'success'); assert.deepEqual(calls, ['reply:parent-id', 'history', 'complete']);
+calls.length = 0;
+assert.equal((await retry.run({ productId: 1, affiliateUrl: 'https://example.com/a', dryRun: true, client })).status, 'dry_run'); assert.deepEqual(calls, []);
+assert.equal((await retry.run({ productId: 9, affiliateUrl: 'https://example.com/a', dryRun: false, client })).status, 'not_found');
+assert.equal((await retry.run({ productId: 1, affiliateUrl: 'bad', dryRun: false, client })).status, 'failed');
+const eligibility = new PostEligibilityService(history);
+assert.deepEqual(await eligibility.check({ productId: 1 }), { eligible: false, reason: 'pending_reply_exists', pendingParentPostId: 'parent-id' });
+assert.deepEqual(await eligibility.check({ productId: 2 }), { eligible: false, reason: 'repost_window_active' });
+assert.deepEqual(await eligibility.check({ productId: 3, now: new Date('2026-02-01T00:00:00Z') }), { eligible: true, reason: 'eligible' });
+assert.equal((await eligibility.check({ productId: 0 })).reason, 'invalid_input');
+console.log('reply retry repost guard: ok');
