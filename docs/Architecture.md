@@ -48,6 +48,13 @@ settings（独立したシステム設定）
 - `settings` はキーを主キーとするシステム設定である。
 - `products`、`actresses`、`favorites`、`post_history`、`settings` は更新時に`updated_at`を自動更新する。
 
+## 指定女優管理API（Step 3B）
+
+- dashboardは女優管理のHTTPルーティングだけを担当し、SQLは `ActressRepository`、入力正規化と業務ルールは `ActressService` に分離する。
+- APIは `GET /api/actresses`、`GET /api/actresses/:id`、`POST /api/actresses`、`PATCH /api/actresses/:id`、`PATCH /api/actresses/:id/enabled`、`DELETE /api/actresses/:id` を提供する。一覧では `search` と `enabled` を指定できる。
+- `DATABASE_URL` 未設定時はPoolが遅延生成されないためdashboardは起動できる。女優APIの実行時だけ安全な500応答を返し、接続文字列、SQL、バインド値、スタックトレースは返さない。
+- Serviceの入力・未検出・重複・関連商品の削除競合は、HTTP層でそれぞれ400・404・409へ変換する。DB障害と予期しないエラーは安全な500応答に統一する。
+
 ## 投稿フロー
 
 1. スケジューラーが投稿エンジンを起動する。

@@ -7,6 +7,9 @@ import { TwitterApi } from 'twitter-api-v2';
 import { loadState, todayKey } from './state.js';
 import { fetchOfficialSaleCandidates, isOfficialSaleUrl } from './official.js';
 import { startWorker } from './worker.js';
+import { ActressRepository, ActressService, type Queryable } from './actresses.js';
+import { handleActressApiRequest } from './actress-api.js';
+import { getDatabasePool } from './db/pool.js';
 
 const publicDir = new URL('../public/', import.meta.url).pathname;
 const dataDir = process.env.APP_DATA_DIR ?? new URL('../data/', import.meta.url).pathname;
@@ -117,6 +120,28 @@ createServer(async (request, response) => {
       response.writeHead(401, { 'WWW-Authenticate': 'Basic realm="FANZA Auto Poster"' });
       response.end('Authentication required');
       return;
+    }
+    if (url.pathname.startsWith('/api/actresses')) {
+      let body: Record<string, unknown> = {};
+      if (request.method === 'POST' || request.method === 'PATCH') {
+        try {
+          body = await readJson(request);
+        } catch {
+          sendJson(response, 400, { message: 'リクエスト本文が不正です。' });
+          return;
+        }
+      }
+      const result = await handleActressApiRequest(
+        request.method,
+        url.pathname,
+        url.searchParams,
+        body,
+        () => new ActressService(new ActressRepository(getDatabasePool() as unknown as Queryable))
+      );
+      if (result) {
+        sendJson(response, result.status, result.body);
+        return;
+      }
     }
     if (url.pathname === '/api/status') {
       const state = await loadState();
