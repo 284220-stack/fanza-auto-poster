@@ -20,6 +20,8 @@ export type SaleSyncSmokeTestResult = {
   failedCount: number;
   warningsCount: number;
   warningReasons: Record<string, number>;
+  priceFormats: Record<string, number>;
+  priceDiagnostics: Record<string, number>;
   errorsCount: number;
   exitCode: 0 | 1;
 };
@@ -37,7 +39,7 @@ function blankResult(): SaleSyncSmokeTestResult {
   return {
     configuration: 'not_run', database: 'not_run', provider: 'not_run', persistence: 'not_run',
     fetchedCount: 0, createdCount: 0, updatedCount: 0, skippedCount: 0, failedCount: 0,
-    warningsCount: 0, warningReasons: {}, errorsCount: 0, exitCode: 1
+    warningsCount: 0, warningReasons: {}, priceFormats: {}, priceDiagnostics: {}, errorsCount: 0, exitCode: 1
   };
 }
 
@@ -67,17 +69,57 @@ const safeWarningCodes = new Set([
   'campaign_missing', 'campaign_out_of_period', 'price_missing', 'invalid_price',
   'price_not_discounted', 'required_field_missing', 'invalid_url', 'normalization_failed'
 ]);
+const detailedPriceWarning = /^(invalid_price|price_missing):(current_price|list_price):(numeric_only|comma_separated|currency_symbol|yen_suffix|range|text_included|empty|unsupported_type|unknown_format):([a-z]+):(array|object|scalar):length_(\d+|na)$/;
+
+type PriceWarningDetails = { reason: 'invalid_price' | 'price_missing'; field: string; format: string; javascriptType: string; shape: string; length: string };
+
+function priceWarningDetails(warning: string): PriceWarningDetails | undefined {
+  const match = warning.match(detailedPriceWarning);
+  return match ? { reason: match[1] as PriceWarningDetails['reason'], field: match[2], format: match[3], javascriptType: match[4], shape: match[5], length: match[6] } : undefined;
+}
 
 export function summarizeWarningReasons(warnings: readonly string[]) {
   return warnings.reduce<Record<string, number>>((counts, warning) => {
-    const code = safeWarningCodes.has(warning) ? warning : 'normalization_failed';
+    const details = priceWarningDetails(warning);
+    const code = details?.reason ?? (warning.startsWith('price_missing:')
+      ? 'price_missing'
+      : safeWarningCodes.has(warning) ? warning : 'normalization_failed');
     counts[code] = (counts[code] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+export function summarizePriceFormats(warnings: readonly string[]) {
+  return warnings.reduce<Record<string, number>>((counts, warning) => {
+    const details = priceWarningDetails(warning);
+    if (!details) return counts;
+    const key = `${details.field}:${details.format}`;
+    counts[key] = (counts[key] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+export function summarizePriceDiagnostics(warnings: readonly string[]) {
+  return warnings.reduce<Record<string, number>>((counts, warning) => {
+    const details = priceWarningDetails(warning);
+    if (!details) return counts;
+    const key = `${details.field}:${details.javascriptType}:${details.shape}:length_${details.length}`;
+    counts[key] = (counts[key] ?? 0) + 1;
     return counts;
   }, {});
 }
 
 function addWarningReasons(target: Record<string, number>, warnings: readonly string[]) {
   for (const [code, count] of Object.entries(summarizeWarningReasons(warnings))) target[code] = (target[code] ?? 0) + count;
+}
+
+function addCounts(target: Record<string, number>, source: Record<string, number>) {
+  for (const [key, count] of Object.entries(source)) target[key] = (target[key] ?? 0) + count;
+}
+
+function addPriceDiagnostics(result: SaleSyncSmokeTestResult, warnings: readonly string[]) {
+  addCounts(result.priceFormats, summarizePriceFormats(warnings));
+  addCounts(result.priceDiagnostics, summarizePriceDiagnostics(warnings));
 }
 
 export async function runSaleSyncSmokeTest(options: SaleSyncSmokeTestOptions = {}): Promise<SaleSyncSmokeTestResult> {
@@ -112,6 +154,7 @@ export async function runSaleSyncSmokeTest(options: SaleSyncSmokeTestOptions = {
     }
     result.warningsCount = providerResult.warnings.length;
     addWarningReasons(result.warningReasons, providerResult.warnings);
+    addPriceDiagnostics(result, providerResult.warnings);
     if (providerFailure(providerResult)) {
       result.provider = 'failed';
       result.errorsCount = 1;
@@ -142,6 +185,7 @@ export async function runSaleSyncSmokeTest(options: SaleSyncSmokeTestOptions = {
       result.failedCount = sync.failedCount;
       result.warningsCount += sync.warnings.length;
       addWarningReasons(result.warningReasons, sync.warnings);
+      addPriceDiagnostics(result, sync.warnings);
       result.errorsCount += sync.errors.length;
       result.exitCode = sync.status === 'success' ? 0 : 1;
       return result;
@@ -163,6 +207,8 @@ export async function runSaleSyncSmokeTest(options: SaleSyncSmokeTestOptions = {
 
 export function formatSaleSyncSmokeTestResult(result: SaleSyncSmokeTestResult) {
   const warningReasons = Object.entries(result.warningReasons).sort(([left], [right]) => left.localeCompare(right)).map(([code, count]) => `${code}=${count}`).join(',') || 'none';
+  const priceFormats = Object.entries(result.priceFormats).sort(([left], [right]) => left.localeCompare(right)).map(([code, count]) => `${code}=${count}`).join(',') || 'none';
+  const priceDiagnostics = Object.entries(result.priceDiagnostics).sort(([left], [right]) => left.localeCompare(right)).map(([code, count]) => `${code}=${count}`).join(',') || 'none';
   return [
     `configuration: ${result.configuration}`,
     `database: ${result.database}`,
@@ -176,6 +222,8 @@ export function formatSaleSyncSmokeTestResult(result: SaleSyncSmokeTestResult) {
     `failedCount: ${result.failedCount}`,
     `warningsCount: ${result.warningsCount}`,
     `warningReasons: ${warningReasons}`,
+    `priceFormats: ${priceFormats}`,
+    `priceDiagnostics: ${priceDiagnostics}`,
     `errorsCount: ${result.errorsCount}`
   ].join('\n');
 }

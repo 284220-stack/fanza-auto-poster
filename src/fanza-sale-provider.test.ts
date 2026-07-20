@@ -25,7 +25,7 @@ const provider = new FanzaSaleProvider({
               { ...valid, campaign: [{ date_begin: '2000-01-01', date_end: '2000-01-02' }] },
               { ...valid, prices: { list_price: '100' } },
               { ...valid, prices: { price: '-1', list_price: '100' } },
-              { ...valid, prices: { price: '100', list_price: '100' } },
+              { ...valid, prices: { price: '100', list_price: '90' } },
               { ...valid, title: '' },
               { ...valid, URL: 'bad' },
               { ...valid, affiliateURL: 'bad' }
@@ -48,6 +48,10 @@ assert.match(requested, /hits=8/);
 assert.match(requested, /offset=9/);
 assert.equal(result.items[0].sampleVideoUrl, 'https://example.test/v');
 assert.deepEqual(result.items[0].actressNames, ['A']);
-assert.deepEqual(result.warnings.sort(), ['campaign_missing', 'campaign_out_of_period', 'price_missing', 'invalid_price', 'price_not_discounted', 'required_field_missing', 'invalid_url', 'normalization_failed'].sort());
+assert.deepEqual(result.warnings.sort(), [
+  'campaign_missing', 'campaign_out_of_period', 'price_missing:current_price:unsupported_type:undefined:scalar:length_na',
+  'invalid_price:current_price:numeric_only:string:scalar:length_2',
+  'price_not_discounted', 'required_field_missing', 'invalid_url', 'normalization_failed'
+].sort());
 assert.doesNotMatch(JSON.stringify(result), /api_id=x|affiliate_id=y/);
 console.log('fanza-sale-provider: ok');

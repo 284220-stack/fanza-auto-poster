@@ -1,4 +1,5 @@
 import { normalizeProviderResult, type ProductProvider, type ProviderItem, type ProviderQuery, type ProviderResult } from './providers.js';
+import { convertDmmPrice, priceDiagnosticCode, priceMissingDiagnosticCode } from './dmm-price.js';
 
 export type SaleWarningCode =
   | 'campaign_missing'
@@ -12,7 +13,7 @@ export type SaleWarningCode =
 
 export type HttpClient = { get(url: string, signal: AbortSignal): Promise<{ status: number; json(): Promise<unknown> }> };
 type ApiItem = Record<string, unknown>;
-type Conversion = { item: ProviderItem } | { warning: SaleWarningCode };
+type Conversion = { item: ProviderItem } | { warnings: string[] };
 
 export class FanzaSaleProvider implements ProductProvider {
   readonly source = 'sale' as const;
@@ -37,19 +38,19 @@ export class FanzaSaleProvider implements ProductProvider {
       const body = await response.json() as { result?: { items?: ApiItem[]; total_count?: number; result_count?: number; first_position?: number } };
       if (!body.result || !Array.isArray(body.result.items)) return failure('DMM Webサービスの応答形式が不正です。');
 
-      const warnings: SaleWarningCode[] = [];
+      const warnings: string[] = [];
       const fetchedAt = new Date().toISOString();
       const items: ProviderItem[] = [];
       for (const raw of body.result.items) {
         const converted = convert(raw, fetchedAt);
         if ('item' in converted) items.push(converted.item);
-        else warnings.push(converted.warning);
+        else warnings.push(...converted.warnings);
       }
       const count = body.result.result_count ?? items.length;
       const first = body.result.first_position ?? offset;
       const hasMore = first - 1 + count < (body.result.total_count ?? first - 1 + count);
       const normalized = normalizeProviderResult({ source: 'sale', items, fetchedAt, warnings, hasMore, nextPage: hasMore ? page + 1 : undefined });
-      return { ...normalized, warnings: normalized.warnings.map((warning) => isWarningCode(warning) ? warning : 'normalization_failed') };
+      return { ...normalized, warnings: normalized.warnings.map((warning) => isSafeWarning(warning) ? warning : 'normalization_failed') };
     } catch {
       return failure('DMM Webサービスから商品情報を取得できませんでした。');
     } finally {
@@ -60,21 +61,26 @@ export class FanzaSaleProvider implements ProductProvider {
 
 function convert(raw: ApiItem, fetchedAt: string): Conversion {
   const campaign = Array.isArray(raw.campaign) ? object(raw.campaign[0]) : undefined;
-  if (!campaign) return { warning: 'campaign_missing' };
-  if (!activeCampaign(campaign)) return { warning: 'campaign_out_of_period' };
+  if (!campaign) return { warnings: ['campaign_missing'] };
+  if (!activeCampaign(campaign)) return { warnings: ['campaign_out_of_period'] };
 
   const prices = object(raw.prices);
-  const price = decimal(prices?.price);
-  const list = decimal(prices?.list_price);
-  if (price.kind === 'missing' || list.kind === 'missing') return { warning: 'price_missing' };
-  if (price.kind === 'invalid' || list.kind === 'invalid') return { warning: 'invalid_price' };
-  if (list.value <= price.value) return { warning: 'price_not_discounted' };
+  const price = convertDmmPrice(prices?.price, 'current_price');
+  const list = convertDmmPrice(prices?.list_price, 'list_price');
+  const priceWarnings = [price, list].flatMap((conversion) => {
+    if (conversion.ok) return [];
+    return conversion.reason === 'missing'
+      ? [priceMissingDiagnosticCode(conversion.diagnostic)]
+      : [priceDiagnosticCode(conversion.diagnostic)];
+  });
+  if (!price.ok || !list.ok) return { warnings: priceWarnings };
+  if (list.value <= price.value) return { warnings: ['price_not_discounted'] };
 
   const id = string(raw.content_id) ?? string(raw.product_id);
   const title = string(raw.title);
   const productUrl = string(raw.URL);
-  if (!id || !title || !productUrl) return { warning: 'required_field_missing' };
-  if (!httpUrl(productUrl)) return { warning: 'invalid_url' };
+  if (!id || !title || !productUrl) return { warnings: ['required_field_missing'] };
+  if (!httpUrl(productUrl)) return { warnings: ['invalid_url'] };
 
   const movie = object(raw.sampleMovieURL);
   const sampleVideoUrl = ['size_720_480', 'size_644_414', 'size_560_360', 'size_476_306'].map((key) => string(movie?.[key])).find(Boolean);
@@ -95,10 +101,8 @@ function failure(error: string): ProviderResult { return { source: 'sale', items
 function object(value: unknown): Record<string, unknown> | undefined { return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined; }
 function string(value: unknown): string | undefined { return typeof value === 'string' && value.trim() ? value.trim() : undefined; }
 function httpUrl(value: string) { try { const url = new URL(value); return url.protocol === 'http:' || url.protocol === 'https:'; } catch { return false; } }
-function decimal(value: unknown): { kind: 'missing' } | { kind: 'invalid' } | { kind: 'value'; value: number } {
-  if (value === undefined || value === null || value === '') return { kind: 'missing' };
-  const numeric = typeof value === 'string' || typeof value === 'number' ? Number(value) : Number.NaN;
-  return Number.isFinite(numeric) && numeric >= 0 ? { kind: 'value', value: numeric } : { kind: 'invalid' };
-}
 function activeCampaign(campaign: Record<string, unknown>) { const begin = Date.parse(string(campaign.date_begin) ?? ''); const end = Date.parse(string(campaign.date_end) ?? ''); const now = Date.now(); return Number.isFinite(begin) && Number.isFinite(end) && begin <= now && now <= end; }
-function isWarningCode(value: string): value is SaleWarningCode { return new Set<SaleWarningCode>(['campaign_missing', 'campaign_out_of_period', 'price_missing', 'invalid_price', 'price_not_discounted', 'required_field_missing', 'invalid_url', 'normalization_failed']).has(value as SaleWarningCode); }
+function isSafeWarning(value: string) {
+  return new Set<SaleWarningCode>(['campaign_missing', 'campaign_out_of_period', 'price_missing', 'invalid_price', 'price_not_discounted', 'required_field_missing', 'invalid_url', 'normalization_failed']).has(value as SaleWarningCode)
+    || /^(invalid_price|price_missing):(current_price|list_price):(numeric_only|comma_separated|currency_symbol|yen_suffix|range|text_included|empty|unsupported_type|unknown_format):[a-z]+:(array|object|scalar):length_(\d+|na)$/.test(value);
+}
