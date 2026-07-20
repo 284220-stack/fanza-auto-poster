@@ -171,4 +171,6 @@ Railway productionで`npm run posts:run`を一回実行し、候補0件・各件
 
 Railway のNixpacksビルドでは `package.json` の `engines.node` を唯一のNode.jsバージョン指定として使用する。本プロジェクトはNode.js 20 LTSを要求する。productionのmigrationは、Node.js 20で稼働するデプロイを確認してから、Railwayのproduction環境変数を使って `npm run db:migrate` を一回だけ実行する。手動SQLや`db:migrate:down`は使わない。
 
+Step 7B-1ではproductionのNode.js `v20.18.1`を確認し、投稿本文・文字数用migrationを適用済みである。
+
 投稿履歴は`GET /api/post-history`で安全な一覧、`GET /api/post-history/:id`で詳細を取得します。一覧では`dateFrom`、`dateTo`、`status`、`actress`、`product`、`pendingReply`、`page`、`limit`を指定できます。既定のDRY_RUNでは実投稿も履歴保存も行いません。確認時に`DRY_RUN=false`へ変更したり、実投稿を実行したりしないでください。

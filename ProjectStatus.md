@@ -2,10 +2,11 @@
 
 ## Phase 2: 投稿訴求基盤
 
-### Step 7B-1: Railway Node.js更新・production migration適用（進行中）
+### Step 7B-1: Railway Node.js更新・production migration適用（完了）
 
 - Railway productionのNixpacks runtimeにNode.js指定がなかったため、既定のNode.js 18が選択されていた。`node-pg-migrate`の依存関係がNode.js 20以上を要求するため、`package.json`の`engines.node`だけでNode.js 20 LTSを指定する。
-- `1762000000000_post_history_content.ts`は変更せず、再デプロイ後に正式な`npm run db:migrate`を一回だけ実行する。手動SQL、down migration、実投稿、Scheduler有効化は行わない。
+- Railway productionはNode.js `v20.18.1`で再デプロイされた。`1762000000000_post_history_content.ts`は変更せず、productionコンテナで正式な`npm run db:migrate`を一回だけ実行した。
+- 適用後の読み取り専用確認で、`post_text`（text・NULL許容）、`character_count`（integer・NULL許容）、非負を保証する`post_history_character_count_check`、migration履歴を確認した。既存`post_history`行数は適用前後とも0件で維持された。手動SQL、down migration、実投稿、Scheduler有効化は行っていない。
 
 ### Step 7A: 管理画面GUI全面刷新・投稿内容履歴（完了）
 
