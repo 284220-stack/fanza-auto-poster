@@ -129,6 +129,12 @@ settings（独立したシステム設定）
 - `XPostClient`は`createPost`と`createReply`を抽象化し、`ThreadPostExecutionService`へDIする。親投稿にURLを許可せず、返信テンプレートだけがHTTP/HTTPS URLを1回含む。
 - dryRunは投稿クライアントを呼ばず、親投稿後の返信失敗は親投稿IDと安全な固定エラーを返す`partial_success`とする。動画、DB投稿履歴、実X APIアダプターは後続である。
 
+## X API・投稿履歴統合（Step 6E）
+
+- `XApiPostClient`はOAuth環境変数から作成され、投稿本文・URL・Xレスポンスを露出せず安全な固定エラーへ変換する。通信は注入可能なtransportでテストする。
+- `post_history`へ`execution_status`と`parent_history_id`を追加し、親投稿の`pending_reply`と返信成功後の`posted`を表す。dryRunは履歴保存しない。
+- 統合サービスは同一プロセス内でproductIdごとの実行をロックする。分散ロック、動画、実行API、投稿候補選定は未実装である。
+
 ## セキュリティと配置
 
 - X API資格情報、アフィリエイトID、管理画面パスワードは環境変数で供給する。

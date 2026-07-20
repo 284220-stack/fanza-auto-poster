@@ -148,3 +148,7 @@ npm run sync:sales:check -- --persist
 未認識文字は `unknownPriceCodePoints` に `U+` コードポイントと件数だけを表示します。数字のコードポイント、価格実値、商品情報、認証情報は表示しません。診断結果だけで価格を推測・変換せず、変換ルールの変更は別Stepで検討してください。
 
 既存の管理画面起動コマンドは `npm run dashboard`。認証情報、トークン、アフィリエイトID、パスワードはリポジトリへ追加せず、環境変数等で安全に管理する。
+
+## X投稿（Step 6E）
+
+実投稿には`X_APP_KEY`、`X_APP_SECRET`、`X_ACCESS_TOKEN`、`X_ACCESS_SECRET`と、明示的な`DRY_RUN=false`が必要です。既定の`DRY_RUN=true`ではX API通信も投稿履歴保存も行いません。値は表示・コミットしないでください。
