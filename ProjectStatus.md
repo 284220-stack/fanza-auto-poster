@@ -2,7 +2,11 @@
 
 ## 現在地
 
-Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先する自己見積もり、実装順序、中断、コミットのルールを追加した。Step 3A〜3CとStep 4A〜4Dは実装済みである。
+Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先する自己見積もり、実装順序、中断、コミットのルールを追加した。Step 3A〜3CとStep 4A〜4Eは実装済みである。
+
+## Step 4Eの実装内容
+
+- `SaleSyncRunner` はProvider、ProductWriter、任意LoggerをDIし、`persistSaleProducts`を実行して安全なSyncResultへ集計する。Cron登録は未実装である。
 
 ## Step 4Dの実装内容
 
