@@ -48,10 +48,10 @@ assert.match(requested, /hits=8/);
 assert.match(requested, /offset=9/);
 assert.equal(result.items[0].sampleVideoUrl, 'https://example.test/v');
 assert.deepEqual(result.items[0].actressNames, ['A']);
-assert.deepEqual(result.warnings.sort(), [
-  'campaign_missing', 'campaign_out_of_period', 'price_missing:current_price:unsupported_type:undefined:scalar:length_na',
-  'invalid_price:current_price:numeric_only:string:scalar:length_2',
-  'price_not_discounted', 'required_field_missing', 'invalid_url', 'normalization_failed'
-].sort());
+assert.equal(result.warnings.length, 8);
+for (const warning of ['campaign_missing', 'campaign_out_of_period', 'price_missing:current_price:unsupported_type:undefined:scalar:length_na', 'price_not_discounted', 'required_field_missing', 'invalid_url', 'normalization_failed']) {
+  assert.ok(result.warnings.includes(warning));
+}
+assert.ok(result.warnings.some((warning) => /^invalid_price:current_price:numeric_only:string:scalar:length_2:pattern_R?D:ascii_digits_1:/.test(warning)));
 assert.doesNotMatch(JSON.stringify(result), /api_id=x|affiliate_id=y/);
 console.log('fanza-sale-provider: ok');

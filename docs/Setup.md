@@ -141,4 +141,10 @@ npm run sync:sales:check -- --persist
 
 例として、`priceFormats: current_price:comma_separated=1` は現在価格でカンマ区切り形式の変換失敗が1件あったことだけを示します。`priceDiagnostics` は同じ失敗の型・形状・文字数を示します。価格の最小値・最大値・推測値を採用しないでください。
 
+### DMM価格文字種診断（Step 5E）
+
+`unknown_format` の場合は、`priceCharacterPatterns` と `priceCharacterCounts` を確認します。パターンは数字を常に `D` に伏せ、通貨記号を `Y`、範囲記号を `R`、カンマを `C`、空白を `S`、日本語文字を `J`、その他記号を `P`、未認識文字を `X` で表します。
+
+未認識文字は `unknownPriceCodePoints` に `U+` コードポイントと件数だけを表示します。数字のコードポイント、価格実値、商品情報、認証情報は表示しません。診断結果だけで価格を推測・変換せず、変換ルールの変更は別Stepで検討してください。
+
 既存の管理画面起動コマンドは `npm run dashboard`。認証情報、トークン、アフィリエイトID、パスワードはリポジトリへ追加せず、環境変数等で安全に管理する。
