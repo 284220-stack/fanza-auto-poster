@@ -76,6 +76,12 @@ settings（独立したシステム設定）
 - dashboardのBasic認証配下に `POST /api/sync/sales` を置く。完了・一部成功は安全な件数要約を200で返し、実行中は409、設定不足・内部失敗・同期失敗は詳細を伏せて500で返す。GETは実行しない。
 - `npm run sync:sales` は一回だけ実行してPoolを終了するCLIである。成功は終了コード0、一部成功・失敗・実行中は終了コード1とし、標準出力には安全な件数要約だけを出す。Railway Schedulerは後続作業でこのコマンドを実行する。
 
+## 実環境スモークテスト基盤（Step 5B）
+
+- `npm run sync:sales:check` は、`DATABASE_URL`、`DMM_API_ID`、`DMM_AFFILIATE_ID` の設定有無、PostgreSQL接続、DMM ItemListの最小取得を診断するCLIである。設定値、商品情報、URL、SQL、内部例外は表示しない。
+- 引数なしの既定モードは `check-only` であり、Provider取得までを確認して商品保存は行わない。`npm run sync:sales:check -- --persist` を明示した場合だけ `SaleSyncExecutionService` を使って一回の保存・更新を実行する。
+- 診断の依存はDB確認、Provider、同期実行、Pool終了を注入可能にし、完了時にはPoolを終了する。Railway Schedulerの実設定および実行頻度はこのStepでも未実装である。
+
 ## 指定女優管理API（Step 3B）
 
 - dashboardは女優管理のHTTPルーティングだけを担当し、SQLは `ActressRepository`、入力正規化と業務ルールは `ActressService` に分離する。

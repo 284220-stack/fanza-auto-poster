@@ -68,4 +68,20 @@ npm run sync:sales
 
 成功時の終了コードは0です。一部成功、失敗、または同一プロセスで実行中の場合は終了コード1です。Railway Schedulerを設定する後続Stepでは、スケジュールのコマンドに同じ `npm run sync:sales` を指定します。時刻・頻度の設定はこのStepでは行いません。
 
+## 実環境スモークテスト（Step 5B）
+
+ローカルまたはRailwayの実行環境で、`DATABASE_URL`、`DMM_API_ID`、`DMM_AFFILIATE_ID` を環境変数として設定したうえで、まず保存を行わない既定モードを実行します。
+
+```powershell
+npm run sync:sales:check
+```
+
+このコマンドは設定有無、PostgreSQL接続、DMM ItemListの最小取得だけを確認し、商品保存は行いません。すべて成功した場合だけ、明示的に `--persist` を指定して一回の保存・更新を確認します。
+
+```powershell
+npm run sync:sales:check -- --persist
+```
+
+成功時は終了コード0、設定不足・取得失敗・保存失敗は終了コード1です。Railwayでは同じ環境変数をServiceに設定して手動実行ログで確認できますが、Schedulerの作成・実行時刻・頻度の設定はまだ行いません。
+
 既存の管理画面起動コマンドは `npm run dashboard`。認証情報、トークン、アフィリエイトID、パスワードはリポジトリへ追加せず、環境変数等で安全に管理する。

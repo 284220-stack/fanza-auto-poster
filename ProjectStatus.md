@@ -1,5 +1,12 @@
 # Project Status
 
+## Step 5B: 実環境スモークテスト基盤（完了）
+
+- `src/sale-sync-smoke-test.ts` と `src/sync-sales-check.ts` に、設定・PostgreSQL・DMM ItemList・保存処理を安全に診断するCLI基盤を追加した。
+- `npm run sync:sales:check` はcheck-onlyが既定であり、DB接続と最小Provider取得だけを確認して商品保存は行わない。`npm run sync:sales:check -- --persist` を明示した場合だけ `SaleSyncExecutionService` で保存・更新を一回実行する。
+- 診断出力は状態・件数だけで、認証情報、接続文字列、SQL、商品名、商品URL、内部例外は出力しない。終了時はDB Poolを終了する。
+- Railway Schedulerの実設定・時刻・頻度と分散ロックは未実装である。次のStep候補は、実環境でcheck-onlyを実行してから、明示的なpersist確認とRailway Scheduler運用設計を行うことである。
+
 ## Step 5A: セール同期の実行基盤（完了）
 
 - `src/sale-sync-execution.ts` に、`FanzaSaleProvider`、`ProductService`/`ProductRepository` による `ProductWriter`、`SaleSyncRunner` を組み立てる実行サービスを追加した。公開契約は `SaleSyncExecutionService.run(): Promise<SaleSyncExecutionResult>` であり、開始済み結果または `already_running` を返す。
