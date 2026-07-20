@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatSaleSyncSmokeTestResult, runSaleSyncSmokeTest, type SaleSyncSmokeTestResult } from './sale-sync-smoke-test.js';
+import { formatSaleSyncSmokeTestResult, runSaleSyncSmokeTest, summarizeWarningReasons, type SaleSyncSmokeTestResult } from './sale-sync-smoke-test.js';
 import { executeSaleSyncSmokeTestCli, smokeTestMode } from './sync-sales-check.js';
 import type { ProductProvider, ProviderResult } from './providers.js';
 import type { SyncResult } from './sale-sync-runner.js';
@@ -47,13 +47,14 @@ assert.equal(checkOnly.persistence, 'not_run');
 assert.equal(persisted, false);
 
 const persist = await runSaleSyncSmokeTest({
-  mode: 'persist', environment, checkDatabase: async () => {}, provider: provider({ warnings: ['safe'] }),
-  executeSync: async () => ({ started: true, result: syncResult({ warnings: ['safe'], errors: [{ productId: 'safe', message: 'safe' }] }) }), closePool
+  mode: 'persist', environment, checkDatabase: async () => {}, provider: provider({ warnings: ['campaign_missing'] }),
+  executeSync: async () => ({ started: true, result: syncResult({ warnings: ['campaign_missing'], errors: [{ productId: 'safe', message: 'safe' }] }) }), closePool
 });
 assert.equal(persist.persistence, 'ok');
 assert.equal(persist.exitCode, 0);
 assert.equal(persist.createdCount, 1);
 assert.equal(persist.warningsCount, 2);
+assert.deepEqual(persist.warningReasons, { campaign_missing: 2 });
 assert.equal(persist.errorsCount, 1);
 
 const partial = await runSaleSyncSmokeTest({
@@ -74,4 +75,5 @@ const cliResult: SaleSyncSmokeTestResult = { ...checkOnly, exitCode: 0 };
 assert.equal(await executeSaleSyncSmokeTestCli([], async () => cliResult, (message) => output.push(message)), 0);
 assert.equal(await executeSaleSyncSmokeTestCli(['--unexpected'], async () => cliResult, (message) => output.push(message)), 1);
 assert.doesNotMatch(output.join('\n'), /hidden|postgres|https|secret/);
+assert.deepEqual(summarizeWarningReasons(['campaign_missing', 'campaign_missing', 'untrusted warning']), { campaign_missing: 2, normalization_failed: 1 });
 console.log('sale sync smoke test: ok');

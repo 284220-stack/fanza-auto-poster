@@ -84,4 +84,53 @@ npm run sync:sales:check -- --persist
 
 成功時は終了コード0、設定不足・取得失敗・保存失敗は終了コード1です。Railwayでは同じ環境変数をServiceに設定して手動実行ログで確認できますが、Schedulerの作成・実行時刻・頻度の設定はまだ行いません。
 
+## 実環境E2E確認チェックリスト（Step 5C）
+
+実行前に、ローカルまたはRailwayの実行プロセスへ次の環境変数が設定されていることを、値を表示せずに確認します。
+
+- `DATABASE_URL`
+- `DMM_API_ID`
+- `DMM_AFFILIATE_ID`
+
+ローカルで `.env` を使う場合は、Node.jsの `--env-file` で明示的に読み込みます。通常の `npm run` は `.env` を自動読み込みしません。
+
+```powershell
+npm run build
+node --env-file=.env dist/sync-sales-check.js
+```
+
+上記はcheck-onlyです。`configuration: ok`、`database: ok`、`provider: ok`、`persistence: not_run`、終了コード0を確認し、productsへの保存が行われていないことを確認します。
+
+check-onlyが成功し、保存してよい実環境であることを確認した場合だけ、次を一回実行します。
+
+```powershell
+node --env-file=.env dist/sync-sales-check.js --persist
+```
+
+persistでは `persistence: ok`、`syncStatus: success`、終了コード0を確認します。対象商品が取得された場合、初回は`createdCount`、同じ商品を再確認した場合は`updatedCount`が増加します。対象候補が0件の場合は、保存件数が0でもProvider確認自体は成功になり得ます。`warningsCount`は確認し、`errorsCount`は0であることを確認します。
+
+Railwayでは、Serviceに同じ3つの環境変数を設定したうえで、手動実行用コマンドとして次を使用します。Schedulerはまだ設定しません。
+
+```text
+npm run sync:sales:check
+npm run sync:sales:check -- --persist
+```
+
+失敗時は値を共有せず、状態だけで切り分けます。`configuration: failed` は環境変数不足、`database: failed` は接続先・SSL・到達性、`provider: failed` はDMM認証または外部API到達性、`persistence: failed` または `syncStatus: partial_success/failed` は保存処理の失敗または一部失敗を示します。失敗時の終了コードは1であり、詳細な認証情報・SQL・URLは出力されません。
+
+### Sale Provider警告分類
+
+`sync:sales:check` の出力には、警告の合計に加えて `warningReasons` が `reason=count` 形式で表示されます。商品名、商品ID、URL、価格、キャンペーン名、認証値は表示されません。
+
+- `campaign_missing`: キャンペーン情報なし
+- `campaign_out_of_period`: キャンペーン期間外または期間情報不正
+- `price_missing`: 通常価格または現在価格なし
+- `invalid_price`: 価格値不正
+- `price_not_discounted`: 通常価格以下になっていない
+- `required_field_missing`: 商品の必須項目なし
+- `invalid_url`: 商品URL不正
+- `normalization_failed`: 共通正規化で除外
+
+`fetchedCount: 0` かつ `warningsCount` が大きい場合は、`warningReasons` の最多コードを確認して除外理由を判断します。診断のために保存ロジックやセール判定条件を変更しないでください。
+
 既存の管理画面起動コマンドは `npm run dashboard`。認証情報、トークン、アフィリエイトID、パスワードはリポジトリへ追加せず、環境変数等で安全に管理する。
