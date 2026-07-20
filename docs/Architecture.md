@@ -161,6 +161,11 @@ settings（独立したシステム設定）
 - previewは常にdryRunとしてOrchestratorを通し、X API・投稿履歴を更新しない。executeも`DRY_RUN=false`が環境変数で明示されない限りdryRunのままであり、30日再投稿禁止とpending_reply優先はOrchestratorへ委譲する。
 - 同一プロセス内の実行ロックでpreview/executeを問わず重複起動を拒否し、finallyで解除する。分散ロックは未実装のため、Railway Schedulerは単一インスタンスで起動する必要がある。
 
+## Railway preview運用確認（Step 6L）
+
+- Railway productionで既定の`npm run posts:run`を一回実行し、候補0件でもpreviewとして終了コード0で安全に終了することを確認した。`DRY_RUN=true`のためX API・投稿履歴は更新しない。
+- Schedulerは未有効化である。将来の設定は、単一インスタンスで前回終了後に次回を開始する一回実行コマンドとし、時刻・頻度は別途決定する。
+
 ## セキュリティと配置
 
 - X API資格情報、アフィリエイトID、管理画面パスワードは環境変数で供給する。
