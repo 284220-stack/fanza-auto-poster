@@ -2,6 +2,12 @@
 
 ## Phase 2: 投稿訴求基盤
 
+### Step 6H: 手動投稿APIの実環境dryRun確認（完了）
+
+- ローカルdashboardを`DRY_RUN=true`で起動し、Basic認証下の`POST /api/posts/execute`へ架空の短い親投稿文・安全なテストURL・dryRunを指定して確認した。
+- APIはHTTP 200、`action=dry_run`、`status=dry_run`を返し、レスポンスに投稿本文、URL、内部エラーは含まれなかった。実行前後の`post_history`件数は0で不変だった。
+- dryRunではX API transportを呼ばず、DB更新を行わないことを実環境経路で確認した。実投稿、動画、候補選定、スケジューラーは未実施。次Step候補は、実データを用いない範囲でのpending_reply／blocked分岐の運用確認と、スケジューラー導線の設計である。
+
 ### Step 6G: 投稿実行フロー統合（完了）
 
 - `PostExecutionOrchestrator`とBasic認証下の`POST /api/posts/execute`を追加した。pending_replyを最優先で返信再試行し、30日再投稿禁止中はX APIを呼ばずブロックする。
