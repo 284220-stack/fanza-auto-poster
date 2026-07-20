@@ -124,6 +124,11 @@ settings（独立したシステム設定）
 - `sale_first`、`actress_first`、`campaign_first`、`balanced`を提供し、同一行の重複を除去する。内容が要約できない場合は事実に基づく一般的な案内へフォールバックする。
 - 既定最大240文字を超える候補は除外する。X API、URL・アフィリエイトURL、返信投稿、AI API、DB、HTTPは後続である。
 
+## スレッド投稿実行（Step 6D）
+
+- `XPostClient`は`createPost`と`createReply`を抽象化し、`ThreadPostExecutionService`へDIする。親投稿にURLを許可せず、返信テンプレートだけがHTTP/HTTPS URLを1回含む。
+- dryRunは投稿クライアントを呼ばず、親投稿後の返信失敗は親投稿IDと安全な固定エラーを返す`partial_success`とする。動画、DB投稿履歴、実X APIアダプターは後続である。
+
 ## セキュリティと配置
 
 - X API資格情報、アフィリエイトID、管理画面パスワードは環境変数で供給する。

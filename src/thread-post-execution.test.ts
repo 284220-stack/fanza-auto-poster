@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import { generateReplyTemplate } from './reply-template.js';
+import { ThreadPostExecutionService, type XPostClient } from './thread-post-execution.js';
+
+const validUrl = 'https://example.com/affiliate';
+const reply = generateReplyTemplate({ affiliateUrl: validUrl });
+assert.equal(reply.reply?.text, `作品はこちら\n${validUrl}`);
+assert.equal(generateReplyTemplate({}).reply, undefined);
+assert.equal(generateReplyTemplate({ affiliateUrl: 'ftp://example.com' }).reply, undefined);
+assert.equal((reply.reply?.text.match(/https?:\/\//g) ?? []).length, 1);
+assert.doesNotMatch(reply.reply?.text ?? '', /#|PR/);
+assert.equal(generateReplyTemplate({ affiliateUrl: validUrl, maxLength: 3 }).reply, undefined);
+let calls: string[] = [];
+const client: XPostClient = { createPost: async () => { calls.push('parent'); return { postId: 'parent-1', textLength: 2, createdAt: 'now' }; }, createReply: async (_text, id) => { calls.push(`reply:${id}`); return { postId: 'reply-1', textLength: 2, createdAt: 'now' }; } };
+const service = new ThreadPostExecutionService();
+const success = await service.run({ parentPostText: 'PR\n本文', affiliateUrl: validUrl, productId: 'safe-id', client });
+assert.equal(success.status, 'success'); assert.deepEqual(calls, ['parent', 'reply:parent-1']);
+calls = [];
+const dry = await service.run({ parentPostText: 'PR\n本文', affiliateUrl: validUrl, productId: 'safe-id', client, dryRun: true });
+assert.equal(dry.status, 'dry_run'); assert.deepEqual(calls, []);
+const failed = await service.run({ parentPostText: 'PR\n本文', affiliateUrl: validUrl, productId: 'safe-id', client: { ...client, createPost: async () => { throw new Error('secret'); } } });
+assert.equal(failed.status, 'failed'); assert.deepEqual(failed.errors, ['parent_post_failed']);
+const partial = await service.run({ parentPostText: 'PR\n本文', affiliateUrl: validUrl, productId: 'safe-id', client: { ...client, createReply: async () => { throw new Error('secret'); } } });
+assert.equal(partial.status, 'partial_success'); assert.equal(partial.parentPostId, 'parent-1');
+assert.equal((await service.run({ parentPostText: '', affiliateUrl: validUrl, productId: 'safe-id', client })).status, 'failed');
+assert.equal((await service.run({ parentPostText: `PR ${validUrl}`, affiliateUrl: validUrl, productId: 'safe-id', client })).status, 'failed');
+console.log('thread post execution: ok');
