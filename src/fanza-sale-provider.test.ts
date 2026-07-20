@@ -1,0 +1,6 @@
+import assert from 'node:assert/strict'; import { FanzaSaleProvider } from './fanza-sale-provider.js';
+const now=new Date(); const begin=new Date(now.valueOf()-3600000).toISOString(); const end=new Date(now.valueOf()+3600000).toISOString();
+const valid={content_id:'id',title:'title',URL:'https://example.test/p',affiliateURL:'https://example.test/a',prices:{price:'80',list_price:'100'},campaign:[{date_begin:begin,date_end:end}],sampleMovieURL:{size_720_480:'https://example.test/v'},imageURL:{large:'https://example.test/i'},date:'2026-01-01',iteminfo:{actress:[{name:'A'},{name:'A'}]}};
+let requested=''; const provider=new FanzaSaleProvider({async get(url){requested=url;return{status:200,async json(){return{result:{items:[valid,{...valid,URL:'bad'}],total_count:3,result_count:2,first_position:1}}}}}}, {DMM_API_ID:'x',DMM_AFFILIATE_ID:'y'});
+const result=await provider.fetch({limit:2,page:2}); assert.equal(result.items.length,1);assert.equal(result.items[0].price,100);assert.equal(result.items[0].salePrice,80);assert.equal(result.items[0].isSale,true);assert.equal(result.hasMore,true);assert.equal(result.nextPage,3);assert.match(requested,/hits=2/);assert.match(requested,/offset=3/);assert.equal(result.items[0].sampleVideoUrl,'https://example.test/v');assert.deepEqual(result.items[0].actressNames,['A']);
+console.log('fanza-sale-provider: ok');
