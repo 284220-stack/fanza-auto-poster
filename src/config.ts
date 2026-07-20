@@ -14,6 +14,7 @@ export type AppConfig = {
   newReleaseLimit: number;
   disclosure: string;
   dryRun: boolean;
+  officialSaleMonitor: { enabled: boolean; urls: string[] };
 };
 
 function numberValue(name: string, fallback: number) {
@@ -41,6 +42,10 @@ export function loadConfig(): AppConfig {
     saleLimit: numberValue('DAILY_SALE_LIMIT', 3),
     newReleaseLimit: numberValue('DAILY_NEW_RELEASE_LIMIT', 3),
     disclosure: value('DISCLOSURE') || '#PR',
-    dryRun: (process.env.DRY_RUN ?? 'true').toLowerCase() !== 'false'
+    dryRun: (process.env.DRY_RUN ?? 'true').toLowerCase() !== 'false',
+    officialSaleMonitor: {
+      enabled: (process.env.OFFICIAL_SALE_MONITOR_ENABLED ?? 'false').toLowerCase() === 'true',
+      urls: (process.env.OFFICIAL_SALE_URLS ?? '').split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)
+    }
   };
 }

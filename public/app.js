@@ -17,6 +17,8 @@ function applySettings(status) {
   document.querySelector('#settingNew').value = status.newReleaseLimit;
   document.querySelector('#settingDisclosure').value = status.disclosure;
   document.querySelector('#dryRun').checked = status.dryRun;
+  document.querySelector('#officialSaleMonitor').checked = Boolean(status.officialSaleMonitor?.enabled);
+  document.querySelector('#officialSaleUrls').value = status.officialSaleMonitor?.urls || '';
   const complete = Object.values(status.configured).every(Boolean);
   document.querySelector('#setupBadge').textContent = complete ? '設定済み' : '入力が必要';
 }
@@ -62,6 +64,7 @@ document.querySelector('#settingsForm').addEventListener('submit', async (event)
   const form = new FormData(event.currentTarget);
   const values = Object.fromEntries(form.entries());
   values.DRY_RUN = document.querySelector('#dryRun').checked ? 'true' : 'false';
+  values.OFFICIAL_SALE_MONITOR_ENABLED = document.querySelector('#officialSaleMonitor').checked ? 'true' : 'false';
   try {
     await post('/api/settings', values);
     event.currentTarget.querySelectorAll('input[type="password"]').forEach((input) => { input.value = ''; });
@@ -76,6 +79,11 @@ document.querySelector('#testYahoo').addEventListener('click', async () => {
 });
 document.querySelector('#testX').addEventListener('click', async () => {
   try { setMessage('Xへ接続しています。'); setMessage((await post('/api/test/x')).message); }
+  catch (error) { setMessage(error.message, true); }
+});
+
+document.querySelector('#testOfficialSales').addEventListener('click', async () => {
+  try { setMessage('公式セールページへ接続しています。'); setMessage((await post('/api/test/official-sales')).message); }
   catch (error) { setMessage(error.message, true); }
 });
 document.querySelector('#refresh').addEventListener('click', refresh);

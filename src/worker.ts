@@ -2,7 +2,8 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { TwitterApi } from 'twitter-api-v2';
 import { loadConfig, type AppConfig } from './config.js';
-import { buildPost, extractCandidates } from './extract.js';
+import { buildPost, extractCandidates, type Candidate } from './extract.js';
+import { fetchOfficialSaleCandidates } from './official.js';
 import { loadState, saveState, todayKey } from './state.js';
 
 function senderAllowed(config: AppConfig, from: string) {
@@ -11,6 +12,21 @@ function senderAllowed(config: AppConfig, from: string) {
 
 function hasTargetKeyword(config: AppConfig, text: string) {
   return config.targetKeywords.some((keyword) => text.includes(keyword));
+}
+
+async function recordCandidate(candidate: Candidate, config: AppConfig, state: Awaited<ReturnType<typeof loadState>>, today: string, xClient: TwitterApi, source: 'mail' | 'officialSalePage') {
+  if (state.postedUrls.includes(candidate.url)) return false;
+  if (state.daily[today][candidate.type] >= (candidate.type === 'sale' ? config.saleLimit : config.newReleaseLimit)) return false;
+  const post = buildPost(candidate, config.disclosure);
+  if (config.dryRun) console.log(`[DRY RUN] ${source} ${candidate.type}:\n${post}\n`);
+  else {
+    const result = await xClient.v2.tweet(post);
+    console.log(`Posted ${candidate.type}: https://x.com/i/web/status/${result.data.id}`);
+  }
+  state.postedUrls.push(candidate.url);
+  state.history.push({ type: candidate.type, title: candidate.title, url: candidate.url, postedAt: new Date().toISOString(), status: config.dryRun ? 'dryRun' : 'posted', source });
+  state.daily[today][candidate.type] += 1;
+  return true;
 }
 
 export async function pollOnce() {
@@ -40,20 +56,18 @@ export async function pollOnce() {
         for (const candidate of candidates) {
           if (state.postedUrls.includes(candidate.url)) continue;
           if (state.daily[today][candidate.type] >= (candidate.type === 'sale' ? config.saleLimit : config.newReleaseLimit)) continue;
-          const post = buildPost(candidate, config.disclosure);
-          if (config.dryRun) console.log(`[DRY RUN] ${candidate.type}:\n${post}\n`);
-          else {
-            const result = await xClient.v2.tweet(post);
-            console.log(`Posted ${candidate.type}: https://x.com/i/web/status/${result.data.id}`);
-          }
-          state.postedUrls.push(candidate.url);
-          state.history.push({ type: candidate.type, title: candidate.title, url: candidate.url, postedAt: new Date().toISOString(), status: config.dryRun ? 'dryRun' : 'posted' });
-          state.daily[today][candidate.type] += 1;
-          handled = true;
+          handled = await recordCandidate(candidate, config, state, today, xClient, 'mail') || handled;
         }
         if (handled || candidates.length === 0) state.postedMessageIds.push(messageId);
       }
     } finally { lock.release(); }
+
+    if (config.officialSaleMonitor.enabled && config.officialSaleMonitor.urls.length) {
+      const candidates = await fetchOfficialSaleCandidates(config.officialSaleMonitor.urls);
+      for (const candidate of candidates) {
+        await recordCandidate(candidate, config, state, today, xClient, 'officialSalePage');
+      }
+    }
   } finally {
     await client.logout().catch(() => undefined);
     await saveState(state);

@@ -7,7 +7,7 @@ export type State = {
   postedMessageIds: string[];
   postedUrls: string[];
   daily: Record<string, { sale: number; newRelease: number }>;
-  history: Array<{ type: 'sale' | 'newRelease'; title: string; url: string; postedAt: string; status: 'posted' | 'dryRun' }>;
+  history: Array<{ type: 'sale' | 'newRelease'; title: string; url: string; postedAt: string; status: 'posted' | 'dryRun'; source?: 'mail' | 'officialSalePage' }>;
 };
 
 const emptyState = (): State => ({ postedMessageIds: [], postedUrls: [], daily: {}, history: [] });
