@@ -2,6 +2,13 @@
 
 ## Phase 2: 投稿訴求基盤
 
+### Step 7B-2: 管理画面の配色・UIトーン調整（完了）
+
+- 7ページ構成、hashルーティング、API契約、投稿ロジックを維持したまま、管理画面の配色を落ち着いた青灰・ネイビーグレー基調に統一する。CSS変数で背景、文字、境界線、アクセント、状態色を一元化する。
+- カード、テーブル、フォーム、ボタン、モーダル、ページネーション、空・エラー表示、成功・警告・エラーのバッジ、hover/focusを低彩度で可読性のある状態色へ揃えた。モバイルのサイドバー、オーバーレイ、テーブル横スクロールも既存構造のまま維持した。
+- Chromeの存在は確認できたが、この実行環境ではバックグラウンドのローカルDashboard起動が実行ポリシーで拒否されたため、実ブラウザのスクリーンショット確認はできなかった。`node --check public/app.js`、CSS差分レビュー、既存の型検査・テストを代替確認とした。
+- 実X投稿、`DRY_RUN=false`、Scheduler有効化、投稿選定・30日ルール変更、機能追加は行わない。次Step候補はRailway production上の実ブラウザ確認に基づく小規模なUI微調整である。
+
 ### Step 7B-1: Railway Node.js更新・production migration適用（完了）
 
 - Railway productionのNixpacks runtimeにNode.js指定がなかったため、既定のNode.js 18が選択されていた。`node-pg-migrate`の依存関係がNode.js 20以上を要求するため、`package.json`の`engines.node`だけでNode.js 20 LTSを指定する。

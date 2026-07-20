@@ -6,7 +6,7 @@ const el=(tag,text)=>{const node=document.createElement(tag);if(text!==undefined
 const button=(text,handler,kind='button')=>{const b=el('button',text);b.type='button';b.className=`button ${kind==='danger'?'danger':kind==='secondary'?'secondary':''}`;b.addEventListener('click',handler);return b};
 const panel=(title)=>{const p=el('section');p.className='panel';const h=el('div');h.className='panel-head';h.append(el('h2',title));p.append(h);return p};
 const table=(heads)=>{const wrap=el('div');wrap.className='table-wrap';const t=el('table'),thead=el('thead'),tr=el('tr'),body=el('tbody');heads.forEach(x=>tr.append(el('th',x)));thead.append(tr);t.append(thead,body);wrap.append(t);return{wrap,body}};
-const notify=(message,error=false)=>{toast.textContent=message;toast.style.background=error?'#7f1d1d':'#14532d';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),3000)};
+const notify=(message,error=false)=>{toast.textContent=message;toast.classList.toggle('is-error',error);toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),3000)};
 const api=async(path,options)=>{const r=await fetch(path,options);let value={};try{value=await r.json()}catch{}if(!r.ok)throw new Error(value.message||'操作に失敗しました。');return value};
 const date=v=>v?new Intl.DateTimeFormat('ja-JP',{dateStyle:'short',timeStyle:'short'}).format(new Date(v)):'-';
 const badge=(text,kind='')=>{const b=el('span',text);b.className=`badge ${kind}`;return b};
