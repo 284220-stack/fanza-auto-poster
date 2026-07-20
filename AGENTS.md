@@ -1,5 +1,88 @@
 # 開発ルール
 
+## Git・GitHub運用の標準フロー（最優先）
+
+この節は、Git運用に関する他の記載より優先する。
+
+1. `main` ブランチかつ作業ツリーがcleanであることを確認する。
+2. `feature` ブランチを作成する。
+3. 実装する。
+4. テストする。
+5. 自己レビューする。
+6. Completion Gateを実行する。
+7. 全成功時のみ `git add -A` を実行する。
+8. ローカルコミットする。
+9. 現在のfeatureブランチを `origin` へpushする。
+10. baseが `main`、headが今回のfeatureブランチであるPull Requestを作成する。
+11. PRの状態・競合・必須チェックを確認する。
+12. マージ条件を満たす場合だけPRをmergeする。
+13. `main` へ切り替え、`origin/main` をpullする。
+14. 今回のローカルfeatureブランチを削除する。
+15. `git status` を確認して最終報告する。
+
+Codexは各Stepで、featureブランチ作成、実装、テスト、文書更新、自己レビュー、Completion Gate、`git add -A`、ローカルコミット、push、Pull Request作成、条件を満たすPRのmerge、ローカルmain更新までを担当する。
+
+### コミット条件
+
+以下がすべて成功し、自己レビューがOKの場合だけコミットできる。
+
+- `npm run check`
+- `npm test`
+- `npm run build`
+- `git diff --check`
+- 自己レビュー
+
+一つでも失敗した場合はコミットしない。
+
+### GitHubでのマージ条件
+
+以下をすべて満たす場合だけ自動マージできる。
+
+- Completion Gateと自己レビューが成功している。
+- PR作成に成功している。
+- baseが `main`、headが今回のfeatureブランチである。
+- GitHub上で競合がない。
+- 必須チェックがある場合はすべて成功している。
+
+一つでも満たさない場合はmergeせず、Step In Progressとして報告する。
+
+PowerShellでは、必要に応じて次の形式を使用する。
+
+```powershell
+git push -u origin <feature-branch>
+gh pr create --base main --head <feature-branch> --title "<タイトル>" --body "<概要・変更内容・検証結果・残る懸念>"
+gh pr merge <PR番号またはURL> --merge --delete-branch
+git switch main
+git pull origin main
+git branch -d <feature-branch>
+git status
+```
+
+PR本文には、概要、主な変更、対象外、テスト・検証結果、残る懸念を含める。
+
+### 未完成時
+
+Step In Progressの場合は、コミット・push・Pull Request作成・mergeを禁止する。ProjectStatus.mdへ再開地点を記録し、途中差分はステージしてよい。次回は同じfeatureブランチと既存差分から再開する。
+
+### 完了時の報告
+
+Step Completedの場合は、コミットID、コミットメッセージ、push結果、PR番号とURL、merge結果、main更新結果、削除したfeatureブランチ、最終`git status`、次Step候補を必ず報告する。
+
+### 禁止事項
+
+Codexは以下を行わない。
+
+- mainへの直接push
+- force push
+- mainの削除
+- `main` 以外を誤ってPRのbaseに指定すること
+- 他の人が作成したPRのmerge
+- 関係のないブランチの削除
+- チェック失敗時の強制merge
+- 認証情報やトークンの出力
+- 未完成状態でのpush・Pull Request作成・merge
+- 明示指示がある文書整備を除く、mainへの直接コミット
+
 ## 作業開始前
 
 - 必ず `ProjectStatus.md` を確認する。
