@@ -54,6 +54,12 @@ settings（独立したシステム設定）
 - `ProductService` はタイトル、FANZA商品ID、URL、価格、セール価格、商品状態を正規化・検証する。重複と存在しない更新は安全な業務エラーとして扱う。
 - 商品取得、FANZAアクセス、Chrome拡張、HTTP API、管理画面、X投稿はこの基盤の対象外である。
 
+## 商品取得Provider基盤（Step 4B）
+
+- Provider共通モデルはsource、外部商品ID、URL、価格、女優名、取得日時、rawDataを表し、Provider Registryがsource単位で実装を登録・取得する。
+- 正規化は不正な候補を警告付きで除外し、1件の不正で全件を失敗させない。rawDataから認証情報・Cookie等を除外する。
+- FANZAへの実アクセス、HTML解析、Chrome拡張、商品保存、定期実行は後続Stepで実装する。
+
 ## 指定女優管理API（Step 3B）
 
 - dashboardは女優管理のHTTPルーティングだけを担当し、SQLは `ActressRepository`、入力正規化と業務ルールは `ActressService` に分離する。
