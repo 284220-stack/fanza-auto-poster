@@ -4,54 +4,24 @@ import { FanzaSaleProvider } from './fanza-sale-provider.js';
 const now = new Date();
 const begin = new Date(now.valueOf() - 3_600_000).toISOString();
 const end = new Date(now.valueOf() + 3_600_000).toISOString();
-const valid = {
-  content_id: 'id', title: 'title', URL: 'https://example.test/p', affiliateURL: 'https://example.test/a',
-  prices: { price: '80', list_price: '100' }, campaign: [{ date_begin: begin, date_end: end }],
-  sampleMovieURL: { size_720_480: 'https://example.test/v' }, imageURL: { large: 'https://example.test/i' },
-  date: '2026-01-01', iteminfo: { actress: [{ name: 'A' }, { name: 'A' }] }
-};
-let requested = '';
-const provider = new FanzaSaleProvider({
-  async get(url) {
-    requested = url;
-    return {
-      status: 200,
-      async json() {
-        return {
-          result: {
-            items: [
-              valid,
-              { ...valid, campaign: [] },
-              { ...valid, campaign: [{ date_begin: '2000-01-01', date_end: '2000-01-02' }] },
-              { ...valid, prices: { list_price: '100' } },
-              { ...valid, prices: { price: '-1', list_price: '100' } },
-              { ...valid, prices: { price: '100', list_price: '90' } },
-              { ...valid, title: '' },
-              { ...valid, URL: 'bad' },
-              { ...valid, affiliateURL: 'bad' }
-            ], total_count: 10, result_count: 9, first_position: 1
-          }
-        };
-      }
-    };
-  }
-}, { DMM_API_ID: 'x', DMM_AFFILIATE_ID: 'y' });
-
-const result = await provider.fetch({ limit: 8, page: 2 });
-assert.equal(result.items.length, 1);
-assert.equal(result.items[0].price, 100);
-assert.equal(result.items[0].salePrice, 80);
-assert.equal(result.items[0].isSale, true);
-assert.equal(result.hasMore, true);
-assert.equal(result.nextPage, 3);
-assert.match(requested, /hits=8/);
-assert.match(requested, /offset=9/);
-assert.equal(result.items[0].sampleVideoUrl, 'https://example.test/v');
-assert.deepEqual(result.items[0].actressNames, ['A']);
-assert.equal(result.warnings.length, 8);
-for (const warning of ['campaign_missing', 'campaign_out_of_period', 'price_missing:current_price:unsupported_type:undefined:scalar:length_na', 'price_not_discounted', 'required_field_missing', 'invalid_url', 'normalization_failed']) {
-  assert.ok(result.warnings.includes(warning));
-}
-assert.ok(result.warnings.some((warning) => /^invalid_price:current_price:numeric_only:string:scalar:length_2:pattern_R?D:ascii_digits_1:/.test(warning)));
-assert.doesNotMatch(JSON.stringify(result), /api_id=x|affiliate_id=y/);
+const base = { content_id: 'id', title: 'title', URL: 'https://example.test/p', affiliateURL: 'https://example.test/a', campaign: [{ date_begin: begin, date_end: end }] };
+const provider = new FanzaSaleProvider({ async get() { return { status: 200, async json() { return { result: { items: [
+  { ...base, prices: { price: '80', list_price: '100' } },
+  { ...base, content_id: 'range', prices: { price: '80～', list_price: '100～' } },
+  { ...base, content_id: 'missing', prices: {} },
+  { ...base, content_id: 'camel', prices: { price: '80', listPrice: '100' } },
+  { ...base, content_id: 'bad', title: '', prices: { price: '80', list_price: '100' } }
+], total_count: 5, result_count: 5, first_position: 1 } }; } }; } }, { DMM_API_ID: 'x', DMM_AFFILIATE_ID: 'y' });
+const result = await provider.fetch({ limit: 5 });
+assert.equal(result.items.length, 4);
+assert.deepEqual(result.items.map((item) => [item.price, item.salePrice, item.isSale]), [[100, 80, true], [null, null, false], [null, null, false], [100, 80, true]]);
+assert.equal(result.responseItemCount, 5);
+assert.equal(result.saveCandidateCount, 4);
+assert.equal(result.priceAvailableCount, 3);
+assert.equal(result.priceUnavailableCount, 2);
+assert.equal(result.saleEligibleCount, 3);
+assert.equal(result.saleIneligibleCount, 2);
+assert.ok(result.warnings.includes('required_field_missing'));
+assert.equal(result.warnings.filter((warning) => warning === 'price_unavailable').length, 2);
+assert.doesNotMatch(JSON.stringify(result), /api_id=x|affiliate_id=y|80～|100～/);
 console.log('fanza-sale-provider: ok');

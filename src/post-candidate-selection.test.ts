@@ -6,4 +6,6 @@ const result = await new PostCandidateSelectionService({ listSelectable: async (
 assert.equal(result.saleCandidates.length, 2); assert.equal(result.actressCandidates.length, 1); assert.equal(result.favoriteSaleCandidates.length, 1); assert.equal(new Set(result.selected.map((v) => v.productId)).size, result.selected.length); assert.equal(result.saleCandidates[0].productId, 2);
 const excluded = await new PostCandidateSelectionService({ listSelectable: async () => [{ ...base, productId: 9, hasRecentParentPost: true }, { ...base, productId: 10, hasPendingReply: true }, { ...base, productId: 11, affiliateUrl: null }] }).select();
 assert.equal(excluded.selected.length, 0); assert.equal(excluded.excludedCount, 3); assert.ok(excluded.warnings.length > 0);
+const priceUnknown = await new PostCandidateSelectionService({ listSelectable: async () => [{ ...base, productId: 12, isSale: false, actressNames: ['女優'], enabledActressNames: ['女優'] }] }).select();
+assert.equal(priceUnknown.saleCandidates.length, 0); assert.equal(priceUnknown.actressCandidates.length, 1);
 console.log('post candidate selection: ok');

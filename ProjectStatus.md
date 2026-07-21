@@ -1,5 +1,14 @@
 # Project Status
 
+## Step 8B: 価格任意のFANZA同期（完了）
+
+- Step 8A/8Bの価格調査方針を中止し、価格を任意項目へ変更した。固定価格だけを`number`として保存し、範囲表現・波ダッシュ・欠損・不明形式は`NULL`として商品を保存する。価格不明は`price_unavailable`の観測情報であり、保存除外・同期エラー・失敗終了コードの理由にしない。
+- 通常価格と販売価格の両方が固定価格で、通常価格が高いときだけセール商品とする。価格不明の商品は`is_sale=false`でセール枠から除外する。既存確定価格は後続の価格不明同期でNULL上書きしない。`price`・`sale_price`は既存スキーマでNULL許容のためmigrationは不要だった。
+- 一時的な価格構造ログ、波ダッシュ調査用の詳細診断、`invalid_price`による全件除外を削除した。同期CLIは`providerResponseCount`、`saveCandidateCount`、`priceAvailableCount`、`priceUnavailableCount`、`saleEligibleCount`、`saleIneligibleCount`、`errorCount`を安全な件数として出力する。
+- 2026-07-21の実環境check-only: `providerResponseCount: 1`、`saveCandidateCount: 1`、`priceAvailableCount: 0`、`priceUnavailableCount: 1`、`saleEligibleCount: 0`、`errorCount: 0`、終了コード0。
+- 同日の実環境persist: `syncStatus: success`、`fetchedCount: 20`、`createdCount: 20`、`failedCount: 0`、`priceUnavailableCount: 1`（check-only観測）、終了コード0。Dashboard APIは商品20件、価格NULL 20件、セール商品0件を返した。投稿候補previewは価格不明商品をセール枠に入れず候補0件で、カテゴリ不足警告のみだった。
+- `DRY_RUN=true`を維持し、Schedulerは未有効、実X投稿・投稿ルール・30日制限・UI変更は実施していない。
+
 ## Phase 2: 投稿訴求基盤
 
 ### Step 7B-5: 目標画像への忠実な再修正（完了）
