@@ -89,6 +89,10 @@ settings（独立したシステム設定）
 - 同期は`providerResponseCount`、`saveCandidateCount`、`priceAvailableCount`、`priceUnavailableCount`、`saleEligibleCount`、`saleIneligibleCount`を安全な件数だけで出力する。価格不明は`price_unavailable`警告として観測するが、error・終了コード・商品保存を失敗させない。
 - `products.price`と`products.sale_price`はNULL許容である。後続同期で価格不明となっても既存の確定価格をNULLで上書きしない。
 
+## 商品と女優の関連保存（Step 8D）
+
+- Providerは許可された女優配列から名前だけを`actressNames`へ正規化する。保存後に既存`actresses`の名前・aliasと一致する女優だけを`product_actresses`へ置換保存し、未登録女優は自動作成しない。
+
 ## 指定女優管理API（Step 3B）
 
 - dashboardは女優管理のHTTPルーティングだけを担当し、SQLは `ActressRepository`、入力正規化と業務ルールは `ActressService` に分離する。

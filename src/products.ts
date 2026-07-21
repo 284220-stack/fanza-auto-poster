@@ -53,6 +53,10 @@ export class ProductRepository {
   async updateSale(id: number, salePrice: number | null, isSale: boolean) { return (await this.db.query<Product>(`UPDATE products SET sale_price = $2, is_sale = $3 WHERE id = $1 RETURNING ${fields}`, [id, salePrice, isSale])).rows[0]; }
   async updateSampleVideo(id: number, sampleVideoUrl: string | null) { return (await this.db.query<Product>(`UPDATE products SET sample_video_url = $2 WHERE id = $1 RETURNING ${fields}`, [id, sampleVideoUrl])).rows[0]; }
   async remove(id: number) { return (await this.db.query<{ id: number }>('DELETE FROM products WHERE id = $1 RETURNING id', [id])).rows[0]; }
+  async replaceActressRelations(productId: number, names: readonly string[]) {
+    const normalized = [...new Set(names.map((name) => name.trim()).filter(Boolean))];
+    return (await this.db.query<{ count: number }>(`WITH removed AS (DELETE FROM product_actresses WHERE product_id = $1), matched AS (SELECT id FROM actresses WHERE name = ANY($2::text[]) OR aliases && $2::text[]), inserted AS (INSERT INTO product_actresses (product_id, actress_id) SELECT $1, id FROM matched ON CONFLICT DO NOTHING RETURNING 1) SELECT count(*)::int AS count FROM inserted`, [productId, normalized])).rows[0]?.count ?? 0;
+  }
 }
 
 type NormalizedProductInput = Required<ProductInput>;
@@ -117,6 +121,7 @@ export class ProductService {
   }
 
   async remove(id: number) { if (!await this.repo.remove(id)) throw new ProductError('商品が見つかりません。', 404); }
+  async replaceActressRelations(productId: number, names: readonly string[]) { return this.repo.replaceActressRelations(productId, names); }
 }
 
 function normalizeUrl(value: string, label: string) { if (!value?.trim()) throw new ProductError(`${label}を入力してください。`); return validateUrl(value.trim(), label); }

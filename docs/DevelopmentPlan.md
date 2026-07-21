@@ -30,6 +30,7 @@
 | 7A | 管理画面GUI全面刷新・投稿内容履歴 | 7ページのhashルーティングUIと投稿履歴閲覧を提供する | UIルート、履歴API、本文保存、migration、情報非露出 |
 | 7B-1 | Railway Node.js更新・production migration適用 | Nixpacks runtimeをNode.js 20へ固定し、正式migrationを適用する | Node指定、再デプロイ、migration、read-only検証 |
 | 8B | 価格任意のFANZA同期 | 価格不明でも商品を保存し、固定価格が揃う場合だけセール判定する | NULL保存、既存価格保持、セール除外、件数集計、実環境persist |
+| 8D | FANZA商品と女優の関連保存 | 既存女優名・aliasに一致する商品女優を関連保存する | 抽出、alias一致、未一致非作成、関連置換、実環境persist |
 | 4F | 定期実行 | CronまたはRailwayスケジューラーからRunnerを起動 | 多重起動、再実行、失敗時 |
 | 4D | お気に入り同期 | Chrome拡張と同期API、認証情報非保存 | 抽出、API認証、upsert |
 | 5 | 商品取得アダプター | 状態、価格、セール/新作、動画、URLの正規化 | 正常、欠損、無効、販売終了 |

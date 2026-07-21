@@ -78,13 +78,14 @@ function convert(raw: ApiItem, fetchedAt: string): Conversion {
   const movie = object(raw.sampleMovieURL);
   const sampleVideoUrl = ['size_720_480', 'size_644_414', 'size_560_360', 'size_476_306'].map((key) => string(movie?.[key])).find(Boolean);
   const image = object(raw.imageURL);
-  const actresses = Array.isArray(object(raw.iteminfo)?.actress) ? object(raw.iteminfo)?.actress as unknown[] : [];
+  const itemInfo = object(raw.iteminfo);
+  const actresses = [itemInfo?.actress, raw.actress, raw.actresses].find(Array.isArray) as unknown[] | undefined ?? [];
   return {
     item: {
       source: 'sale', externalProductId: id, title, productUrl, affiliateUrl: string(raw.affiliateURL),
       thumbnailUrl: string(image?.large) ?? string(image?.list) ?? string(image?.small), sampleVideoUrl,
       price, salePrice, isSale: price !== null && salePrice !== null && price > salePrice, releaseDate: string(raw.date)?.slice(0, 10),
-      actressNames: actresses.map((value) => string(object(value)?.name)).filter((value): value is string => Boolean(value)),
+      actressNames: [...new Set(actresses.map((value) => string(object(value)?.name)).filter((value): value is string => Boolean(value)))],
       fetchedAt, rawData: { campaign: true }
     }
   };
