@@ -138,6 +138,10 @@ node --env-file=.env dist/sync-sales-check.js
 ```
 
 `provider: ok`、`saveCandidateCount`、`priceAvailableCount`、`priceUnavailableCount`、`saleEligibleCount`、`errorCount`を確認します。価格不明件数があっても終了コード0であることを確認後、一回の`--persist`でDB保存件数、商品管理API、投稿候補previewを確認します。`DRY_RUN=true`を維持し、Scheduler、実X投稿、投稿ルール、30日制限は変更しません。
+
+### 商品と女優の関連確認（Step 8D）
+
+persist後、既存女優名・aliasに一致した場合だけ`product_actresses`が保存されます。未一致の女優は自動登録されず、関連0件でも同期は成功します。
 - `invalid_url`: 商品URL不正
 - `normalization_failed`: 共通正規化で除外
 

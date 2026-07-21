@@ -1,5 +1,29 @@
 # Project Status
 
+## Step 8D: FANZA商品と女優の関連保存修正（進行中）
+
+- Providerの女優情報は`iteminfo.actress`、`actress`、`actresses`の配列から安全に名前だけを抽出し、`actressNames: string[]`へ正規化した。商品タイトル、URL、価格、認証値、レスポンス全体は出力しない。
+- 商品保存後、既存の`actresses.name`または`aliases`に一致した女優だけを、単一SQLで`product_actresses`へ置換保存する。未登録女優は自動作成せず、価格・セール・投稿・30日ルール・DB migrationは変更していない。
+- 2026-07-22の実環境persistは20商品更新・失敗0で成功した。ただし登録済み有効女優2名に一致する抽出名は0件で、`product_actresses`は0件、関連商品0件のままである。これは未一致を自動作成しない仕様どおりであり、女優候補previewは0件のままである。
+- 再開地点: 運用者が対象のFANZA女優名またはaliasを既存女優へ登録した後、同じ安全なpersistを一回実行して関連保存・女優候補を再確認する。
+
+## Step 8C: 実商品データによる運用確認（進行中）
+
+- 安全条件: `DRY_RUN=true`、Scheduler未有効、実X投稿なしを維持した。価格・セール・投稿・30日ルール・DB migration・UI大規模変更は行っていない。
+- Dashboard APIの実データ確認: 商品20件、全件`status=available`、発売日あり20件、サンプル動画あり20件、`price`/`salePrice`がNULLのもの20件、セール商品0件、投稿履歴0件である。最長タイトルは138文字で、商品一覧はテーブル横スクロールの既存実装を使用する。
+- 投稿履歴の空状態と不正フィルター（`dateFrom=invalid`、`pendingReply=invalid`）のHTTP 400エラー経路を確認した。Dashboardは商品20件、セール0件、投稿予定0件、投稿履歴0件、DRY_RUN有効を返した。
+- 投稿候補previewは`selectedCount: 0`で、`category_shortage:sale`、`category_shortage:actress`、`category_shortage:favorite_sale`を返した。セール候補0件は現仕様どおりの正常結果であり、条件緩和はしていない。
+
+### 発見した運用上の問題
+
+| 重要度 | 内容 | 再現手順 | 影響 |
+| --- | --- | --- | --- |
+| High | 20商品の女優名・女優関連がDBへ保存されていない。`product_actresses`に関連0件で、登録済み有効女優2名との照合・alias照合ができず、女優候補は0件になる。 | 保存済みDBで`products_with_actress=0`、`products_without_actress=20`を確認し、`POST /api/posts/preview`を実行する。 | 女優カテゴリの投稿候補を選定できず、女優管理の実運用確認を完了できない。 |
+| Medium | `GET /api/products`は常に20件を返し、`page=2&limit=5`等のページング・フィルターを受け付けない。商品API/UIは女優名とNULL価格の列も提供しない。 | `GET /api/products?page=2&limit=5&sale=false`を呼ぶと20件が返る。商品管理画面を開く。 | 商品数増加時に一覧の運用性が低く、女優・価格不明を画面で確認できない。 |
+| Medium | previewのカテゴリ不足はカテゴリ名だけで、除外条件別の件数を運用者へ示さない。 | `POST /api/posts/preview`で0件時の`warnings`を確認する。 | 0件の原因（セール0、女優関連0、お気に入り0等）を画面から即時判別できない。 |
+
+- 再開地点: 女優名の保存・登録女優/aliasとの関連付け、商品API/UIのページング・運用列、previewの理由別件数を別機能Stepとして設計し、実データで再確認する。今回の確認Stepではルール変更や途中実装を行わない。
+
 ## Step 8B: 価格任意のFANZA同期（完了）
 
 - Step 8A/8Bの価格調査方針を中止し、価格を任意項目へ変更した。固定価格だけを`number`として保存し、範囲表現・波ダッシュ・欠損・不明形式は`NULL`として商品を保存する。価格不明は`price_unavailable`の観測情報であり、保存除外・同期エラー・失敗終了コードの理由にしない。
