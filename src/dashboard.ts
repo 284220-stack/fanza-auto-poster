@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { timingSafeEqual } from 'node:crypto';
 import { ImapFlow } from 'imapflow';
 import { TwitterApi } from 'twitter-api-v2';
@@ -25,8 +26,8 @@ import { PostCandidatePreviewService } from './post-candidate-preview.js';
 import { handlePostHistoryApiRequest } from './post-history-api.js';
 import { ProductRepository } from './products.js';
 
-const publicDir = new URL('../public/', import.meta.url).pathname;
-const dataDir = process.env.APP_DATA_DIR ?? new URL('../data/', import.meta.url).pathname;
+const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
+const dataDir = process.env.APP_DATA_DIR ?? fileURLToPath(new URL('../data/', import.meta.url));
 const envPath = join(dataDir, 'settings.env');
 const mime: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8' };
 const secretKeys = new Set(['YAHOO_IMAP_PASSWORD', 'X_APP_KEY', 'X_APP_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET']);
@@ -127,7 +128,12 @@ function isAuthorized(request: IncomingMessage) {
   return received.length === target.length && timingSafeEqual(received, target);
 }
 
-createServer(async (request, response) => {
+function isNotFoundError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
+}
+
+export function createDashboardServer() {
+  return createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', 'http://localhost');
   try {
     if (!isAuthorized(request)) {
@@ -223,12 +229,32 @@ createServer(async (request, response) => {
     const requested = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
     if (requested.includes('..')) { response.writeHead(403).end(); return; }
     const file = join(publicDir, requested);
+    let content: Buffer;
+    try {
+      content = await readFile(file);
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        sendJson(response, 404, { error: 'not_found' });
+        return;
+      }
+      throw error;
+    }
     response.writeHead(200, { 'Content-Type': mime[extname(file)] ?? 'application/octet-stream' });
-    response.end(await readFile(file));
+    response.end(content);
+    return;
   } catch (error) {
-    sendJson(response, 400, { message: error instanceof Error ? error.message : '操作に失敗しました。' });
+    if (response.headersSent) {
+      console.error('Request failed after response was sent');
+      return;
+    }
+    sendJson(response, 500, { error: 'internal_server_error' });
   }
-}).listen(Number(process.env.PORT ?? 3000), process.env.HOST ?? '127.0.0.1', () => {
+  });
+}
+
+if (process.argv[1]?.endsWith('dashboard.js')) {
+  createDashboardServer().listen(Number(process.env.PORT ?? 3000), process.env.HOST ?? '127.0.0.1', () => {
   console.log(`Dashboard: listening on ${process.env.HOST ?? '127.0.0.1'}:${process.env.PORT ?? 3000}`);
   startWorker();
-});
+  });
+}
