@@ -128,6 +128,16 @@ npm run sync:sales:check -- --persist
 - `invalid_price`: 価格値不正
 - `price_not_discounted`: 通常価格以下になっていない
 - `required_field_missing`: 商品の必須項目なし
+
+### 価格任意の同期確認（Step 8B）
+
+価格は任意項目です。固定価格以外はNULLとして商品を保存し、価格不明は`price_unavailable`の件数観測だけを行います。価格値、商品情報、URL、認証値はログへ出しません。
+
+```powershell
+node --env-file=.env dist/sync-sales-check.js
+```
+
+`provider: ok`、`saveCandidateCount`、`priceAvailableCount`、`priceUnavailableCount`、`saleEligibleCount`、`errorCount`を確認します。価格不明件数があっても終了コード0であることを確認後、一回の`--persist`でDB保存件数、商品管理API、投稿候補previewを確認します。`DRY_RUN=true`を維持し、Scheduler、実X投稿、投稿ルール、30日制限は変更しません。
 - `invalid_url`: 商品URL不正
 - `normalization_failed`: 共通正規化で除外
 

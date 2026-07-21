@@ -1,11 +1,10 @@
 import { normalizeProviderResult, type ProductProvider, type ProviderItem, type ProviderQuery, type ProviderResult } from './providers.js';
-import { convertDmmPrice, priceDiagnosticCode, priceMissingDiagnosticCode } from './dmm-price.js';
+import { parseOptionalDmmPrice } from './dmm-price.js';
 
 export type SaleWarningCode =
   | 'campaign_missing'
   | 'campaign_out_of_period'
-  | 'price_missing'
-  | 'invalid_price'
+  | 'price_unavailable'
   | 'price_not_discounted'
   | 'required_field_missing'
   | 'invalid_url'
@@ -49,7 +48,9 @@ export class FanzaSaleProvider implements ProductProvider {
       const count = body.result.result_count ?? items.length;
       const first = body.result.first_position ?? offset;
       const hasMore = first - 1 + count < (body.result.total_count ?? first - 1 + count);
-      const normalized = normalizeProviderResult({ source: 'sale', items, fetchedAt, warnings, hasMore, nextPage: hasMore ? page + 1 : undefined });
+      const priceSummary = summarizePrices(body.result.items);
+      warnings.push(...Array.from({ length: priceSummary.priceUnavailableCount }, () => 'price_unavailable'));
+      const normalized = normalizeProviderResult({ source: 'sale', items, fetchedAt, warnings, hasMore, nextPage: hasMore ? page + 1 : undefined, responseItemCount: body.result.items.length, saveCandidateCount: items.length, ...priceSummary });
       return { ...normalized, warnings: normalized.warnings.map((warning) => isSafeWarning(warning) ? warning : 'normalization_failed') };
     } catch {
       return failure('DMM Webサービスから商品情報を取得できませんでした。');
@@ -65,16 +66,8 @@ function convert(raw: ApiItem, fetchedAt: string): Conversion {
   if (!activeCampaign(campaign)) return { warnings: ['campaign_out_of_period'] };
 
   const prices = object(raw.prices);
-  const price = convertDmmPrice(prices?.price, 'current_price');
-  const list = convertDmmPrice(prices?.list_price, 'list_price');
-  const priceWarnings = [price, list].flatMap((conversion) => {
-    if (conversion.ok) return [];
-    return conversion.reason === 'missing'
-      ? [priceMissingDiagnosticCode(conversion.diagnostic)]
-      : [priceDiagnosticCode(conversion.diagnostic)];
-  });
-  if (!price.ok || !list.ok) return { warnings: priceWarnings };
-  if (list.value <= price.value) return { warnings: ['price_not_discounted'] };
+  const salePrice = parseOptionalDmmPrice(prices?.price);
+  const price = parseOptionalDmmPrice(firstDefined(prices?.list_price, prices?.listPrice));
 
   const id = string(raw.content_id) ?? string(raw.product_id);
   const title = string(raw.title);
@@ -90,19 +83,34 @@ function convert(raw: ApiItem, fetchedAt: string): Conversion {
     item: {
       source: 'sale', externalProductId: id, title, productUrl, affiliateUrl: string(raw.affiliateURL),
       thumbnailUrl: string(image?.large) ?? string(image?.list) ?? string(image?.small), sampleVideoUrl,
-      price: list.value, salePrice: price.value, isSale: true, releaseDate: string(raw.date)?.slice(0, 10),
+      price, salePrice, isSale: price !== null && salePrice !== null && price > salePrice, releaseDate: string(raw.date)?.slice(0, 10),
       actressNames: actresses.map((value) => string(object(value)?.name)).filter((value): value is string => Boolean(value)),
       fetchedAt, rawData: { campaign: true }
     }
   };
 }
 
+function summarizePrices(items: readonly ApiItem[]) {
+  let priceAvailableCount = 0;
+  let saleEligibleCount = 0;
+  for (const raw of items) {
+    const prices = object(raw.prices);
+    const salePrice = parseOptionalDmmPrice(prices?.price);
+    const price = parseOptionalDmmPrice(firstDefined(prices?.list_price, prices?.listPrice));
+    if (price !== null && salePrice !== null) {
+      priceAvailableCount += 1;
+      if (price > salePrice) saleEligibleCount += 1;
+    }
+  }
+  return { priceAvailableCount, priceUnavailableCount: items.length - priceAvailableCount, saleEligibleCount, saleIneligibleCount: items.length - saleEligibleCount };
+}
+
 function failure(error: string): ProviderResult { return { source: 'sale', items: [], fetchedAt: new Date().toISOString(), warnings: [], error, hasMore: false }; }
 function object(value: unknown): Record<string, unknown> | undefined { return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined; }
 function string(value: unknown): string | undefined { return typeof value === 'string' && value.trim() ? value.trim() : undefined; }
+function firstDefined(...values: unknown[]) { return values.find((value) => value !== undefined); }
 function httpUrl(value: string) { try { const url = new URL(value); return url.protocol === 'http:' || url.protocol === 'https:'; } catch { return false; } }
 function activeCampaign(campaign: Record<string, unknown>) { const begin = Date.parse(string(campaign.date_begin) ?? ''); const end = Date.parse(string(campaign.date_end) ?? ''); const now = Date.now(); return Number.isFinite(begin) && Number.isFinite(end) && begin <= now && now <= end; }
 function isSafeWarning(value: string) {
-  return new Set<SaleWarningCode>(['campaign_missing', 'campaign_out_of_period', 'price_missing', 'invalid_price', 'price_not_discounted', 'required_field_missing', 'invalid_url', 'normalization_failed']).has(value as SaleWarningCode)
-    || /^(invalid_price|price_missing):(current_price|list_price):(numeric_only|comma_separated|currency_symbol|yen_suffix|range|text_included|empty|unsupported_type|unknown_format):[a-z]+:(array|object|scalar):length_(\d+|na)(?::pattern_[DYCSPRJX]*:ascii_digits_\d+:full_width_digits_\d+:whitespace_\d+:commas_\d+:periods_\d+:currency_symbols_\d+:japanese_\d+:hyphens_\d+:wave_dashes_\d+:other_symbols_\d+:unknown_(?:none|(?:U\+[0-9A-F]{4,6}=\d+)(?:,U\+[0-9A-F]{4,6}=\d+)*))?$/.test(value);
+  return new Set<SaleWarningCode>(['campaign_missing', 'campaign_out_of_period', 'price_unavailable', 'price_not_discounted', 'required_field_missing', 'invalid_url', 'normalization_failed']).has(value as SaleWarningCode);
 }

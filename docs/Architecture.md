@@ -82,6 +82,13 @@ settings（独立したシステム設定）
 - 引数なしの既定モードは `check-only` であり、Provider取得までを確認して商品保存は行わない。`npm run sync:sales:check -- --persist` を明示した場合だけ `SaleSyncExecutionService` を使って一回の保存・更新を実行する。
 - 診断の依存はDB確認、Provider、同期実行、Pool終了を注入可能にし、完了時にはPoolを終了する。Railway Schedulerの実設定および実行頻度はこのStepでも未実装である。
 
+## 価格任意のFANZA同期（Step 8B）
+
+- 価格はProvider境界で`number | null`へ正規化する。固定価格以外、範囲、波ダッシュ、欠損、不明形式は`null`であり、商品保存の失敗理由にはしない。価格形式の一時構造ログは保持しない。
+- 通常価格は`list_price`を優先し未定義時だけ`listPrice`を使用する。通常価格と販売価格がともに固定価格で通常価格が高い場合だけ`isSale=true`とする。
+- 同期は`providerResponseCount`、`saveCandidateCount`、`priceAvailableCount`、`priceUnavailableCount`、`saleEligibleCount`、`saleIneligibleCount`を安全な件数だけで出力する。価格不明は`price_unavailable`警告として観測するが、error・終了コード・商品保存を失敗させない。
+- `products.price`と`products.sale_price`はNULL許容である。後続同期で価格不明となっても既存の確定価格をNULLで上書きしない。
+
 ## 指定女優管理API（Step 3B）
 
 - dashboardは女優管理のHTTPルーティングだけを担当し、SQLは `ActressRepository`、入力正規化と業務ルールは `ActressService` に分離する。
