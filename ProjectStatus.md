@@ -1,5 +1,14 @@
 # Project Status
 
+## Step 11B: FavoriteProductProvider（完了、2026-07-23）
+
+- `FavoriteProductProvider`を追加し、FANZA/DMM公式商品URLから抽出したcontent_idを重複除去し、1ページ最大20件を順次`ProductMetadataProvider`の公式ItemList `cid`検索で補完できるようにした。API応答の商品IDが要求content_idと厳密一致する場合だけ採用する。
+- metadataは`source=favorite`で、タイトル、商品URL、アフィリエイトURL、発売日、女優、サンプル動画、画像、取得可能な固定価格を正規化する。価格不明は正常、`isSale=false`であり、セール掲載の根拠にはしない。
+- `ProductMetadataProvider`とFavorite側の二段で共通VR判定を行う。重複URL、無効URL、metadataなし、metadata例外、VR漏れ、ページング、価格NULL、source変換、ID不一致拒否をテストした。個別失敗は安全なreason codeと件数だけで継続し、URL・タイトル・認証値を出力しない。
+- Railway production deployment `78ae531d-e089-45ae-85c2-b6ef14f9b5b8`はSUCCESS。既存の非VR商品URL1件を非表示のままcheck-onlyし、received=1、valid=1、invalid=0、unique=1、metadataAvailable=1、metadataUnavailable=0、VR除外=0、failed=0、source=favoriteを確認した。productsは39→39、favoritesは0→0でDB変更なし。
+- ローカルCompletion Gateは`npm run check`、`npm test`、`npm run build`、`git diff --check`がすべて成功。migration、商品persist、お気に入りpersist、Chrome拡張、sale判定変更はなし。`DRY_RUN=true`、投稿Scheduler未有効、実X投稿なし。
+- 残課題: Provider結果の商品upsertとfavorites置換の安全な統合、Chrome拡張、SalePageProvider掲載集合との照合、favorite_sale preview。次の推奨Stepは、同期APIのcheck-onlyで未知商品のmetadata補完予定を確認し、明示persist時だけ商品保存後にfavoritesを更新する統合Serviceである。
+
 ## Step 11A: お気に入り同期API基盤（完了、2026-07-23）
 
 - FANZA/DMM公式商品URLから明確な`cid`、`content_id`またはvideo.dmm.co.jpの`id`だけを抽出し、既存`products.fanza_product_id`と照合する`FavoriteSyncService`と、Basic認証下の`POST /api/favorites/sync`を追加した。任意ドメイン、HTTP URL、曖昧なパス、形式不正IDは受け付けない。
