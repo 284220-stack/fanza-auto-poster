@@ -1,64 +1,60 @@
 # FANZA X Auto Poster
 
-Yahoo! JAPAN Mailに届く案内メールからセール・新製品を抽出し、Xへ自動投稿する小さな常駐ツールです。
+FANZA商品をPostgreSQLへ同期し、登録女優・セール・お気に入りセールの候補を選定して、X向けの親投稿と自己返信を生成するNode.js / TypeScriptアプリです。現在のproductionは安全確認モードで、`DRY_RUN=true`、投稿Scheduler未有効、実X投稿なしです。
 
-## できること
+## 現在利用できる機能
 
-- 未読メールを指定間隔で確認
-- 対象の送信元とキーワードだけを処理
-- セール / 新製品を分類して各1日3件まで投稿
-- 重複メール・重複URLの投稿を防止
-- `#PR`などの広告表記を必ず付加
-- `DRY_RUN=true`ならXへ送らず、投稿予定をログと履歴に記録
-- メールが届かない日も、DMM/FANZA公式ドメインのセールページを監視して投稿候補を追加
+- 登録女優を起点にした公式ItemList APIの商品取得、厳密な女優名・alias照合、商品・関連保存
+- 商品・女優・投稿予定・投稿履歴・設定を確認するBasic認証付きDashboard
+- FANZA/DMM公式商品URLを最大20件受け取るお気に入り同期API（既定check-only）
+- 未登録お気に入り商品の公式metadata補完、価格不明の許容、VR作品の全経路除外
+- セール2件、女優2件、お気に入りセール1件、合計最大5件の決定的な候補選定
+- 30日再投稿禁止、pending reply優先、重複候補防止
+- URLなし・【PR】付き親投稿と、アフィリエイトURLを1回だけ含む自己返信
+- サンプル動画を優先し、利用不能時に公式商品画像へfallbackするmedia検証
+- `DRY_RUN=true`でX API・media upload・投稿履歴更新を行わないpreview
 
-## 初回設定
+## 未完了・承認待ち
 
-1. `npm install`
-2. `npm run dashboard`
-3. ブラウザーで `http://127.0.0.1:3000` を開く
-4. 接続設定でYahoo!メールとX APIの情報を入力し、保存する
-5. 「Yahoo!メールを接続テスト」と「Xを接続テスト」が成功することを確認する
-6. 必要に応じて「公式セールページを監視する」を有効にし、`https://www.dmm.co.jp/...` または `https://www.fanza.co.jp/...` の公式URLを入力して接続テストする
-7. `npm start` を実行し、まずはテスト運転でログと投稿履歴を確認する
-8. ダッシュボードの「テスト運転にする」をオフにして保存後、常駐ツールを再起動すると自動投稿を開始する
+- 指定セール一覧ページからの自動取得は、年齢認証・robots.txt・利用規約の確認待ちです。Cookie利用やHTML取得を無断で実装しません。
+- Chrome拡張の実ページ読取りは、ブラウザ自動操作と年齢認証状態に関わるため承認待ちです。サーバー側の同期APIとmetadata補完は実装済みです。
+- `favorite_sale`は正規なセール掲載集合が未確定のためproduction候補0件が正常です。
+- 実X投稿、実media upload、`DRY_RUN=false`、Scheduler有効化は明示承認が必要です。
 
-## 管理画面
+## ローカル確認
 
-`npm run dashboard` を実行すると、`http://127.0.0.1:3000` に管理画面を開けます。接続情報の保存、Yahoo!メール・X・公式セールページの接続テスト、日別の投稿数、テスト運転 / 自動投稿の状態、直近の投稿履歴を確認できます。パスワードやキーは保存後に再表示されません。
-
-## Railwayへの配置
-
-常時自動投稿する場合は、Railwayに配置します。
-
-1. このフォルダをGitHubの非公開リポジトリへ登録する
-2. Railwayで「New Project」からGitHubリポジトリを選ぶ
-3. サービスの「Variables」に次を追加する
-
-```text
-HOST=0.0.0.0
-APP_DATA_DIR=/data
-DASHBOARD_PASSWORD=ダッシュボード専用の強いパスワード
+```powershell
+npm install
+npm run check
+npm test
+npm run build
+npm run dashboard
 ```
 
-4. サービスにVolumeを追加し、Mount Pathを`/data`にする
-5. 「Networking」でPublic Domainを生成する
-6. 表示されたURLを開き、`DASHBOARD_PASSWORD`でログインする
-7. ダッシュボードからYahoo!メールとX APIの情報を保存し、両方の接続テストを実行する
+Dashboardは既定で`http://127.0.0.1:3000`にlistenします。DBや認証情報は環境変数で設定し、コード・ログ・コミットへ含めないでください。
 
-`settings.env`と投稿履歴はVolume内に保存されます。Volumeを付けないと、再起動や再デプロイ時に設定・履歴が失われます。
+安全な投稿previewは次で一回だけ実行できます。
 
-Yahoo!メール側では「IMAP/POP/SMTPアクセス」を許可し、Yahoo! JAPAN IDのパスワードを使います。Xアカウント側は成人向けコンテンツの表示設定、広告表記、Xの自動化・成人向けコンテンツ規則を確認してから有効化してください。
+```powershell
+npm run posts:run
+```
 
-## メールに合わせた調整
+`--execute`を付けても`DRY_RUN=true`ならX APIは呼びません。ただし運用では承認なしにexecuteモードを使わず、既定previewを使用してください。
 
-メールの送信元を `ALLOWED_SENDERS` に追加すると誤投稿を減らせます。実際に届いたメールの件名と本文の一部を個人情報・URLを伏せて共有してもらえれば、`src/extract.ts` の抽出精度をその書式に合わせて上げられます。
+## 文書
 
-状態は `data/state.json` に保存されます。ツールを再起動しても既読メールの再投稿やURL重複を防ぎます。
+- [セットアップ](docs/Setup.md)
+- [運用手順](docs/Operations.md)
+- [障害対応](docs/IncidentResponse.md)
+- [要件](docs/Requirements.md)
+- [アーキテクチャ](docs/Architecture.md)
+- [進捗・production実測](ProjectStatus.md)
 
+## 安全原則
 
-## 公式セールページ監視
-
-設定画面で「公式セールページを監視する」を有効にすると、通常のYahoo!メール監視に加えて、入力した公式セールページをメール確認間隔と同じ周期で確認します。対象URLはHTTPSの `dmm.co.jp` / `fanza.co.jp` 配下に限定され、外部ドメインやアフィリエイトドメインは保存・抽出の対象外です。
-
-テスト運転中（`DRY_RUN=true`）はXへ投稿せず、抽出した候補をログと投稿履歴に `テスト` として記録します。同一URLは既存のメール由来候補と同じ重複防止リストで管理されるため、メールと公式ページの両方から見つかっても一度だけ処理されます。
+- `DRY_RUN=true`を既定とし、実投稿とScheduler有効化は別々に承認する。
+- VR作品、販売不能商品、URL・media不正、30日以内の既投稿、pending reply対象を安全に除外する。
+- 価格不明は商品保存の失敗理由にしない。セール掲載は価格差だけで推測しない。
+- 未登録女優の自動登録、alias自動追加、あいまい一致を行わない。
+- APIキー、Affiliate ID、Cookie、パスワード、商品URL全文をログへ過剰出力しない。
+- production変更前はcheck-onlyと対象件数を確認し、同じpersistを複数回実行しない。

@@ -1,5 +1,16 @@
 # Project Status
 
+## Step 11E: 運用準備・障害対応・全体回帰（完了、2026-07-23）
+
+- 旧Yahooメール中心で現状と逆だったREADMEを現行のPostgreSQL・女優起点・お気に入り同期・dry-run投稿構成へ更新した。`docs/Operations.md`と`docs/IncidentResponse.md`を追加し、日次確認、同期、preview、実投稿前、Scheduler前、502、同期失敗、media失敗、partial success、限定DBメンテナンスの手順を整理した。
+- Requirementsの古い「価格とセール情報必須」「サンプル動画必須」を、価格任意・カテゴリ根拠必須・動画または公式画像必須へ修正した。Architectureの後続実装済み箇所とSetupの履歴注意書きも現状へ整合した。ProjectStatus末尾の初期未実装一覧は履歴であることを明記し、古い記録自体は保持した。
+- 全体Completion Gateは`npm run check`、`npm test`、`npm run build`、`git diff --check`がすべて成功。全テストには女優取得、価格任意、VR除外、お気に入り、30日制限、pending reply、親投稿・返信、media、dry-run、Dashboardが含まれる。
+- Railway production deployment `f9fea93f-58a9-4abf-89d4-efb8a42370b5`はSUCCESS、Dashboard/previewはHTTP 200。products=39、VR=0、product_actresses=8、favorites=0、post_history=0、pending reply=0、有効かつ新作対象女優=3。previewはselected=2、previewed=2、blocked=0、failed=0、media=image 2件だった。
+- DB変更・migration・persistなし。`DRY_RUN=true`、Railwayに投稿Scheduler resourceなし、実X投稿なし。
+- 実装済み: 女優起点取得、商品・女優管理、VR多重除外、お気に入り同期APIとmetadata補完、3カテゴリ候補ロジック、親投稿＋自己返信URL、画像fallback付きmedia、30日・pending・重複防止、Dashboard、運用・障害文書。
+- 承認待ち: (1) 年齢認証・robots.txt・利用規約に関係するセール一覧取得方法、(2) Chrome拡張による認証済みお気に入りページ読取り、(3) productionお気に入りpersist、(4) 実X投稿・実media upload、(5) Scheduler有効化と時刻・頻度。SalePageProviderとproductionのsale/favorite_sale previewは(1)が決まるまで未完成である。
+- 正確な再開地点: 運用者がセール一覧の正規取得可否とChrome拡張のページ読取り可否を判断する。推奨は、Cookieをサーバーへ渡さずChrome拡張内だけでユーザー操作時に公式商品URLを最大20件抽出し、まず同期APIのcheck-onlyだけを実行する案である。セールHTML取得は規約確認まで実装しない。
+
 ## Step 11D: 親投稿media添付と画像fallback（完了、2026-07-23）
 
 - 投稿候補SQL・Mapperへ`thumbnailUrl`を追加し、`PostMediaResolver`がサンプル動画を優先、公式サムネイル画像をfallbackとして選ぶようにした。HTTPSかつFANZA/DMM公式配下だけを許可し、redirect先、HTTP状態、Content-Type、Content-Lengthを検証する。動画はMP4/MOV・50MB以下、画像はJPEG/PNG/WebP/GIF・5MB以下で、どちらも不適格なら候補を失敗扱いにする。
@@ -373,7 +384,9 @@ Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先
 - Chrome拡張がFANZAお気に入りを同期し、サーバーはFANZA認証情報を保存しない。
 - 同一商品IDは投稿後30日間、再投稿しない。親投稿は【PR】と動画を含め、返信にアフィリエイトURLを投稿する。
 
-## 未実装事項
+## 初期計画時点の未実装事項（履歴）
+
+以下は初期計画時点の記録であり、現在状態は文書先頭の最新Stepと`残課題`を正とする。
 
 - FANZAセール同期Runner、アフィリエイトURL・動画の実データ検証
 - Chrome拡張、お気に入り同期API
@@ -387,6 +400,6 @@ Sprint 0で開発ワークフローを見直し、`AGENTS.md` に完走を優先
 - `DRY_RUN`、定期実行、投稿間隔、日次上限、Railway設定
 - Yahoo!メールIMAP監視、メール抽出、JSON状態保存（確定仕様では不採用。今回未変更）
 
-## 次のStep
+## 初期計画時点の次Step（履歴）
 
 Step 4E候補: `FanzaSaleProvider` と `persistSaleProducts` をDIして実行・集計するSaleSyncRunnerを実装する。Cron登録は後続とする。
