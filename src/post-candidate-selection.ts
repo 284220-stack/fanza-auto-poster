@@ -15,7 +15,20 @@ export class DatabasePostCandidateRepository implements PostCandidateRepository 
     const currentSale = sourceSchemaReady
       ? "EXISTS(SELECT 1 FROM product_sources ps WHERE ps.product_id=p.id AND ps.source_type='sale' AND ps.active)"
       : 'false';
-    return (await this.db.query<CandidateSource>(`SELECT p.id::int AS "productId", p.title, p.affiliate_url AS "affiliateUrl", p.sample_video_url AS "sampleVideoUrl", p.thumbnail_url AS "thumbnailUrl", p.release_date::text AS "releaseDate", ${currentSale} AS "isSale", p.status, EXISTS(SELECT 1 FROM favorites f WHERE f.product_id=p.id) AS favorite, COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE a.id IS NOT NULL), '{}') AS "actressNames", COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE a.enabled), '{}') AS "enabledActressNames", COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE a.enabled AND a.target_new_releases), '{}') AS "enabledNewReleaseActressNames", COALESCE(MAX(a.priority) FILTER (WHERE a.enabled AND a.target_new_releases),0) AS "actressPriority", EXISTS(SELECT 1 FROM post_history h WHERE h.product_id=p.id AND h.post_type='parent' AND h.execution_status IN ('posted','pending_reply') AND h.posted_at >= current_timestamp - interval '30 days') AS "hasRecentParentPost", EXISTS(SELECT 1 FROM post_history h WHERE h.product_id=p.id AND h.post_type='parent' AND h.execution_status='pending_reply') AS "hasPendingReply" FROM products p LEFT JOIN product_actresses pa ON pa.product_id=p.id LEFT JOIN actresses a ON a.id=pa.actress_id GROUP BY p.id`)).rows;
+    const actressEligible = `a.enabled AND a.target_new_releases
+      AND NOT EXISTS (
+        SELECT 1 FROM post_history ah
+        JOIN product_actresses ahpa ON ahpa.product_id=ah.product_id
+        WHERE ahpa.actress_id=a.id AND ah.post_type='parent' AND ah.execution_status IN ('posted','pending_reply')
+          AND ah.posted_at >= current_timestamp - (a.minimum_post_interval_hours * interval '1 hour')
+      )
+      AND (
+        SELECT count(*) FROM post_history wh
+        JOIN product_actresses whpa ON whpa.product_id=wh.product_id
+        WHERE whpa.actress_id=a.id AND wh.post_type='parent' AND wh.execution_status IN ('posted','pending_reply')
+          AND wh.posted_at >= current_timestamp - interval '7 days'
+      ) < a.weekly_post_limit`;
+    return (await this.db.query<CandidateSource>(`SELECT p.id::int AS "productId", p.title, p.affiliate_url AS "affiliateUrl", p.sample_video_url AS "sampleVideoUrl", p.thumbnail_url AS "thumbnailUrl", p.release_date::text AS "releaseDate", ${currentSale} AS "isSale", p.status, EXISTS(SELECT 1 FROM favorites f WHERE f.product_id=p.id) AS favorite, COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE a.id IS NOT NULL), '{}') AS "actressNames", COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE a.enabled), '{}') AS "enabledActressNames", COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE ${actressEligible}), '{}') AS "enabledNewReleaseActressNames", COALESCE(MAX(a.priority) FILTER (WHERE ${actressEligible}),0) AS "actressPriority", EXISTS(SELECT 1 FROM post_history h WHERE h.product_id=p.id AND h.post_type='parent' AND h.execution_status IN ('posted','pending_reply') AND h.posted_at >= current_timestamp - interval '30 days') AS "hasRecentParentPost", EXISTS(SELECT 1 FROM post_history h WHERE h.product_id=p.id AND h.post_type='parent' AND h.execution_status='pending_reply') AS "hasPendingReply" FROM products p LEFT JOIN product_actresses pa ON pa.product_id=p.id LEFT JOIN actresses a ON a.id=pa.actress_id GROUP BY p.id`)).rows;
   }
 }
 export class PostCandidateSelectionService {
@@ -30,7 +43,7 @@ export class PostCandidateSelectionService {
     return { saleCandidates, actressCandidates, favoriteSaleCandidates, selected: [...favoriteSaleCandidates, ...saleCandidates, ...actressCandidates], excludedCount: all.length - eligible.length, warnings, generatedAt: new Date().toISOString() };
   }
 }
-function isEligible(v: CandidateSource) { return !isVrTitle(v.title) && v.status === 'available' && Boolean(v.affiliateUrl) && Boolean(v.title.trim()) && !v.hasRecentParentPost && !v.hasPendingReply && (v.actressNames.length === 0 || v.enabledActressNames.length > 0); }
+function isEligible(v: CandidateSource) { return !isVrTitle(v.title) && v.status === 'available' && Boolean(v.affiliateUrl) && Boolean(v.title.trim()) && !v.hasRecentParentPost && !v.hasPendingReply; }
 function compare(a: CandidateSource, b: CandidateSource) { return score(b) - score(a) || (b.releaseDate ?? '').localeCompare(a.releaseDate ?? '') || a.productId - b.productId; }
 function score(v: CandidateSource) { return v.actressPriority * 100 + (v.discountPercent ? 20 : 0) + (v.campaignName ? 10 : 0) + (v.sampleVideoUrl ? 5 : 0); }
 function candidate(v: CandidateSource, category: CandidateCategory): PostCandidate { return { productId: v.productId, category, title: v.title, actressNames: v.enabledActressNames, affiliateUrl: v.affiliateUrl!, sampleVideoUrl: v.sampleVideoUrl ?? undefined, thumbnailUrl: v.thumbnailUrl ?? undefined, releaseDate: v.releaseDate ?? undefined, discountPercent: v.discountPercent, campaignName: v.campaignName, selectionReasons: [category, ...(v.discountPercent ? ['discount'] : []), ...(v.campaignName ? ['campaign'] : []), ...(v.sampleVideoUrl ? ['sample_video'] : []), ...(v.thumbnailUrl ? ['thumbnail'] : [])], priorityScore: score(v) }; }

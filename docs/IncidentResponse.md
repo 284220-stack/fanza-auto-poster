@@ -44,6 +44,18 @@
 - 401/403は権限・認証、429はrate limit、5xxはX側障害として区別し、秘密値をログへ出さない。
 - 投稿履歴やX投稿IDを手作業で削除・変更しない。
 
+## X認証・本番1件ガード
+
+- read-only診断の`x_credentials_incomplete`は値を表示せず4項目の設定有無だけ確認する。`x_authentication_failed`はtokenをログへ出さず、失効・対象アプリ・権限をX管理画面で確認する。
+- `live_one_safety_confirmation_missing`または`confirmation_token_mismatch`では実行しない。新しいpreflight結果を運用者が確認するまでtokenを流用しない。
+- `live_one_already_attempted`は成功・失敗を問わず連続投稿防止が作動した状態である。投稿履歴、X側、pending replyを確認し、guardを無断削除しない。
+
+## Scheduler停止・多重起動
+
+- `already_running`はPostgreSQL advisory lock取得不能であり、別実行が完了するまで再起動しない。無限retryしない。
+- `scheduler_live_configuration_incomplete`では`DRY_RUN=false`のまま続行せず、Schedulerを無効にしてJST時刻と承認状態を確認する。
+- 緊急停止はRailway Schedulerを無効化し、`DRY_RUN=true`へ戻してからpreview、pending reply、投稿履歴を読み取り確認する。DB lockを手動解除するためにDBプロセスを強制終了しない。
+
 ## DBメンテナンス
 
 - 対象ID、想定件数、関連、pending、投稿履歴、X投稿IDを読み取り確認する。

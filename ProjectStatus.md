@@ -1,5 +1,22 @@
 # Project Status
 
+## Step 13: 本番直前安全制御・Scheduler dry-run準備（実装完了・live承認待ち、2026-07-23）
+
+- Step 12はPR #50（merge commit `be2acc0`）でmainへmerge済み。production migration、Chromeセールpersist、実X、Scheduler作成は行っていない。
+- X資格情報4項目は値を返さず設定有無だけ表示し、`v2.me()`によるread-only認証結果と不可逆なアカウント参照hashだけを返す診断へ分離した。書込み権限、media upload、API plan/rate limitは実投稿なしに成功扱いしない。
+- 本番1件専用`posts:live-one`を追加した。既定preflightはactress候補1件だけを30日・pending・VR・affiliate URL・PR表記・親本文URLなし・mediaまで検証し、タイトル、親本文、media種別、自己返信あり、件数1、確認tokenを表示する。X APIとDBは変更しない。
+- live実行は`DRY_RUN=false`、`--execute`、`--confirm-one-post`、再計算した確認token一致、専用PostgreSQL advisory lock、一回限りの`settings.live_one_post_attempt`予約を必須とする。成功・失敗にかかわらずguardを自動解除せず、1回を超えて連続実行しない。
+- Dashboardの既存`/api/posts/execute`でbodyの`dryRun=false`が環境の安全設定を迂回できたため、汎用APIを常時dry-run限定へ修正し、live要求を409で拒否する。実投稿経路は専用1件CLIまたは承認後Schedulerへ分離した。
+- `posts:run`へPostgreSQL session advisory lockを追加した。lock取得不能は候補選定・X通信前に終了し、live Schedulerは`SCHEDULER_ENABLED=true`、有効な`SCHEDULER_TIME_JST`、`DRY_RUN=false`の全条件を必須とする。時刻は未設定、Schedulerは未有効のままである。
+- Scheduler liveはJST日付単位の`settings` guardをX通信前に予約し、同日に2回目を開始しない。actress候補SQLは登録女優ごとの最低投稿間隔と直近7日週間上限を実際の親投稿履歴から判定するよう補完し、無効女優だけの商品でもsaleカテゴリ自体は誤除外しない。
+- Dashboardはprocess environmentの設定有無を安全に集計し、DRY_RUN、Scheduler有効状態、JST時刻、カテゴリ上限（sale 2、actress 2、favorite_sale 1、合計5）、X read-only診断を表示する。秘密値は返さない。
+- 追加テストはadvisory lock取得・解放・競合、JST日次guard、X診断の秘密値非表示、Scheduler状態・live gate、本番1件token・actress限定・VR・affiliate URL・media・DB guard、Dashboard live拒否、最低間隔・週間上限を含む。Completion Gateは`npm run check`、全テスト、`npm run build`、`git diff --check`が成功。
+- Railway deployment `95c1d7f9-ddf4-48a6-aa75-ee823045516e`はSUCCESS・Dashboard HTTP 200・起動ログ正常。X資格情報4項目は設定済みで`v2.me()` read-only認証成功、対象アカウントは不可逆参照値で一貫確認した。X書込み権限、media upload、plan/rate limitは未実行・未確認である。
+- productionの本番1件preflightはactress候補1件（商品ID 32、依本しおり対象の非VR商品）、親本文51文字、PR表記あり、URLなし、media=image、自己返信あり、警告は`sample_video_unavailable`だけ、error 0、終了コード0だった。確認tokenを生成したが、live実行・guard予約・X通信は行っていない。
+- Scheduler previewはselected 2、dryRun 2、blocked 0、failed 0、alreadyRunning false、actress 2件、終了コード0。Dashboard状態は`DRY_RUN=true`、Scheduler disabled、JST時刻未設定、DB advisory lock、カテゴリ上限2/2/1・合計5。汎用Dashboard live要求はHTTP 409で拒否した。
+- 検証後DBはproducts 58、favorites 20、product_actresses 8、post_history 0、pending 0、live guard 0、Scheduler日次guard 0で検証前から不変。production migration、persist、X書込み、media upload、Scheduler作成を行っていない。
+- 未実施・承認待ち: product_sources production migration、Chromeセールcheck-only/persist、本番1件候補の最終確認、`DRY_RUN=false`への一時変更、実X親投稿・media・自己返信1件、Scheduler時刻決定・作成・有効化。GitHub標準フロー完了後に一括承認事項として提示する。
+
 ## Step 12: 手動セール掲載同期・複数取得経路（実装完了・production有効化待ち、2026-07-23）
 
 - Step 11FはPR #49で完了済みであり、お気に入りpersistを再実行していない。開始時はmainとorigin/main一致、clean、productionはproducts 58、favorites 20、VR 0、actress preview 2件成功だった。

@@ -51,6 +51,12 @@ try {
   const invalidPreview = await request(port, '/api/posts/preview', credentials);
   assert.equal(invalidPreview.status, 400);
 
+  const liveDashboardAttempt = await fetch(`http://127.0.0.1:${port}/api/posts/execute`, {
+    method: 'POST', headers: { authorization: credentials, 'content-type': 'application/json' },
+    body: JSON.stringify({ productId: 1, parentPostText: 'PR', dryRun: false })
+  });
+  assert.equal(liveDashboardAttempt.status, 409);
+
   const invalidFavoriteSync = await fetch(`http://127.0.0.1:${port}/api/favorites/sync`, {
     method: 'POST',
     headers: { authorization: credentials, 'content-type': 'application/json' },

@@ -1,12 +1,10 @@
-import { analyzeProductTitle } from './product-title-analysis.js';
-import { generateKillerMessages } from './killer-message-generation.js';
-import { generatePostTemplates } from './post-template-generation.js';
 import type { CandidateCategory, CandidateSelectionResult, PostCandidate } from './post-candidate-selection.js';
 import { PostCandidatePreviewService } from './post-candidate-preview.js';
 import type { PostExecutionAction, PostExecutionOrchestrator, PostExecutionStatus } from './post-execution-orchestrator.js';
 import type { XPostClient } from './thread-post-execution.js';
 import { isVrTitle } from './vr-product.js';
 import type { PostMediaResolverLike } from './post-media.js';
+import { composePostCandidate } from './post-candidate-content.js';
 
 export type ScheduledPostRunMode = 'preview' | 'execute';
 export type ScheduledPostRunOptions = { mode?: ScheduledPostRunMode; limit?: number; client: XPostClient };
@@ -67,9 +65,7 @@ export class ScheduledPostRunService {
   private async runOne(candidate: PostCandidate, selectedOrder: number, mode: ScheduledPostRunMode, client: XPostClient): Promise<ScheduledPostRunItem> {
     if (isVrTitle(candidate.title)) return { productId: candidate.productId, category: candidate.category, action: 'blocked', status: 'blocked', selectedOrder, warnings: ['vr_excluded'], errors: [] };
     try {
-      const analysis = analyzeProductTitle(candidate.title);
-      const killer = generateKillerMessages({ analysis, actressNames: candidate.actressNames }).primary;
-      const post = generatePostTemplates({ titleAnalysis: analysis, killerMessage: killer, actressNames: candidate.actressNames }).primary;
+      const { analysis, post } = composePostCandidate(candidate);
       if (!post) return { productId: candidate.productId, category: candidate.category, action: 'blocked', status: 'failed', selectedOrder, warnings: [], errors: ['template_unavailable'] };
       const resolved = await this.media.resolve(candidate.sampleVideoUrl, candidate.thumbnailUrl);
       if (!resolved.media) return { productId: candidate.productId, category: candidate.category, action: 'blocked', status: 'failed', selectedOrder, warnings: resolved.warnings, errors: ['media_unavailable'] };
