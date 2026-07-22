@@ -1,5 +1,26 @@
 # Project Status
 
+## production VR誤保存データの限定削除（2026-07-23）
+
+- 削除前にIDs 37, 40, 41, 42, 43が正確に5件、全件でアプリ本体の共通VR判定true、明確なタイトル先頭VR表記、`product_actresses`関連7件、pending投稿0件、投稿履歴0件、X投稿IDなしであることを確認した。非VR商品は対象に含まれなかった。
+- Railway production DBでトランザクションを開始し、対象IDに限定して`product_actresses`を7件削除後、`products`を5件削除した。削除件数と残存（products=0、relations=0）を確認してcommitした。truncate・全件削除・同期persist・投稿履歴等の変更は行っていない。
+- 削除後: products=39、VR商品=0、available非VR商品=39、`product_actresses`総数=8、pending投稿=0、投稿履歴=0。dry-run previewは非VR2件でselectedCount=2、dryRunCount=2、failedCount=0、blockedCount=0、invalidInputCount=0（failedCount=0）。
+- 誤判定原因は、以前の一時読み取りスクリプトの全角ブラケット正規表現がPowerShell経由で文字化けしたこと。DRY_RUN=true、Scheduler未有効、実X投稿なしを維持。
+
+## VR商品保存状況の読み取り調査（原因特定）
+
+- Railway productionの稼働中`fanza-auto-poster`コンテナ内から、Dashboardと同じ`getDatabasePool()`で`railway.public.products`を確認した。Dashboardの`GET /api/products`も同じRepositoryの`products`一覧を参照するため、環境・DBの取り違えは確認されなかった。
+- VR商品は5件（IDs 37, 40, 41, 42, 43）存在し、全件`status=available`、作成・更新時刻は2026-07-22 14:54 UTC、`product_actresses`関連は合計7件。pending投稿・投稿履歴はともに0件。
+- 5件はすべてタイトル先頭`【VR】`であり、確認対象「【VR】規格外にでっかい！波打つむっちり肉感神尻BEST300分」もID 43として存在する。
+- 以前の0件報告は、PowerShell経由で送った一時読み取りスクリプト内の全角ブラケットを含む正規表現が文字化けし、判定条件が壊れた調査不備によるもの。アプリ本体の`isVrTitle`による再確認では5件すべてtrueで、候補選定では5件すべて除外され、現在のselectedは非VRの2件のみ。
+- 保存時刻はVR除外実装のproduction反映前の女優同期persistと一致する。現行の女優同期・metadata補完・セール同期は共通判定を通過してから`persistSaleProducts`へ至る。コード上、これ以外にProductRepositoryへ保存する同期経路は見つからなかった。今回の調査ではDB変更・同期・削除を行っていない。
+
+## Dashboard初期dry-run履歴の確認（2026-07-20）
+
+- Railway production DBを読み取り専用で確認した。JST 2026/07/20の`post_history`は0件であり、対象3件は存在しなかった。
+- `x_post_id`、pending reply、投稿履歴の変更は行っていない。安全条件「対象が正確に3件」を満たさないため、削除は実行しなかった。
+- Dashboardの「最近の投稿履歴」UIおよび投稿履歴機能は変更していない。DRY_RUN=true、Scheduler未有効、実X投稿なしを維持。
+
 ## Step 10 継続: VR作品の全経路除外（実装中）
 
 - 要件: VR作品は女優・新作・sale・favorite_saleを含む全カテゴリで、取得、保存、候補生成、preview、投稿の対象外とする。確認された対象は「【VR】規格外にでっかい！波打つむっちり肉感神尻BEST300分」。
