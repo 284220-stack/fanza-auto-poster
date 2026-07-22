@@ -25,6 +25,8 @@ import { DatabasePostCandidateRepository, PostCandidateSelectionService } from '
 import { PostCandidatePreviewService } from './post-candidate-preview.js';
 import { handlePostHistoryApiRequest } from './post-history-api.js';
 import { ProductRepository } from './products.js';
+import { FavoriteRepository, FavoriteSyncService } from './favorites.js';
+import { handleFavoriteSyncApiRequest } from './favorite-sync-api.js';
 
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 const dataDir = process.env.APP_DATA_DIR ?? fileURLToPath(new URL('../data/', import.meta.url));
@@ -171,6 +173,19 @@ export function createDashboardServer() {
       const products = await new ProductRepository(getDatabasePool() as unknown as Queryable).list();
       sendJson(response, 200, { products: products.slice(0, 100) });
       return;
+    }
+    if (url.pathname.startsWith('/api/favorites')) {
+      let body: Record<string, unknown> = {};
+      if (request.method === 'POST') {
+        try { body = await readJson(request); } catch { sendJson(response, 400, { message: 'リクエスト本文が不正です。' }); return; }
+      }
+      const result = await handleFavoriteSyncApiRequest(
+        request.method,
+        url.pathname,
+        body,
+        () => new FavoriteSyncService(new FavoriteRepository(getDatabasePool() as unknown as Queryable))
+      );
+      if (result) { sendJson(response, result.status, result.body); return; }
     }
     if (url.pathname === '/api/sync/sales') {
       const result = await handleSaleSyncApiRequest(request.method, getSaleSyncExecutionService());

@@ -54,6 +54,13 @@ settings（独立したシステム設定）
 - `ProductService` はタイトル、FANZA商品ID、URL、価格、セール価格、商品状態を正規化・検証する。重複と存在しない更新は安全な業務エラーとして扱う。
 - 商品取得、FANZAアクセス、Chrome拡張、HTTP API、管理画面、X投稿はこの基盤の対象外である。
 
+## お気に入り同期API
+
+- Basic認証下の`POST /api/favorites/sync`はFANZA/DMM公式商品URLの配列を受け取り、明確な`cid`、`content_id`またはvideo.dmm.co.jpの`id`からcontent_idを抽出する。任意ドメインや曖昧なパスからIDを推測しない。
+- 既定はcheck-onlyで、受信、妥当、重複除去、既存商品一致、未一致、作成予定、更新予定、削除予定の件数だけを返す。URLや商品名は返さない。
+- `persist=true`は入力がすべて妥当かつ既存商品へ一致する場合だけ、既存の`favorites`を単一SQLでスナップショット置換する。空集合、無効URL、未登録商品がある場合は変更しない。FANZAの認証情報、Cookie、閲覧セッションは扱わない。
+- 未登録商品の公式API補完は`FavoriteProductProvider`の責務として後続Stepへ分離する。同期APIは商品を自動作成しない。
+
 ## 商品取得Provider基盤（Step 4B）
 
 - Provider共通モデルはsource、外部商品ID、URL、価格、女優名、取得日時、rawDataを表し、Provider Registryがsource単位で実装を登録・取得する。

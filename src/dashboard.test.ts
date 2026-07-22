@@ -51,6 +51,14 @@ try {
   const invalidPreview = await request(port, '/api/posts/preview', credentials);
   assert.equal(invalidPreview.status, 400);
 
+  const invalidFavoriteSync = await fetch(`http://127.0.0.1:${port}/api/favorites/sync`, {
+    method: 'POST',
+    headers: { authorization: credentials, 'content-type': 'application/json' },
+    body: '{'
+  });
+  assert.equal(invalidFavoriteSync.status, 400);
+  assert.deepEqual(await invalidFavoriteSync.json(), { message: 'リクエスト本文が不正です。' });
+
   const unknownApi = await request(port, '/api/not-found', credentials);
   assert.equal(unknownApi.status, 404);
 
