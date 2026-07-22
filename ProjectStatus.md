@@ -1,5 +1,15 @@
 # Project Status
 
+## Step 10 継続: VR作品の全経路除外（実装中）
+
+- 要件: VR作品は女優・新作・sale・favorite_saleを含む全カテゴリで、取得、保存、候補生成、preview、投稿の対象外とする。確認された対象は「【VR】規格外にでっかい！波打つむっちり肉感神尻BEST300分」。
+- 対応: 共通`src/vr-product.ts`を追加し、構造化メタデータを優先して判定し、判定不能時のみ正規化済みの明確なタイトル先頭マーカーを補助判定に使う。単なる文字列中の`VR`は除外しない。
+- 防御箇所: `ActressProductProvider`、`ProductMetadataProvider`、セールProvider、persist直前、候補選定、preview、実行経路。既存DBはまずcheck-onlyで明確なタイトルマーカーに一致する件数・関連数を確認し、物理削除せず安全な投稿対象外化を検討する。
+- 安全性: DRY_RUN=true、Scheduler未有効、実X投稿なしを維持。既存の商品同期persistは再実行しない。
+- ローカル確認: `npm run check`、`npm test`、`npm run build`、`git diff --check`、VR判定テストは成功。Railway DBの明確なVR表記件数の読み取り確認、非VR候補のpreview、デプロイ確認は未完了のため、commit/push/PR/mergeは未実施。
+- Railway production確認: products=44、正規化済みの明確なタイトル先頭VRマーカー該当=0、該当商品の`product_actresses`関連=0、pending投稿=0、投稿履歴=0。確認対象タイトルは未保存。よってDB変更・物理削除・関連削除は不要。
+- Railway preview（デプロイID `82a729b9-06aa-43d6-bbc0-488cae96edb7`）: VR候補=0、非VR女優候補のみ2件、selectedCount=2、dryRunCount=2、blockedCount=0、failedCount=0、invalidInputCount=0（failedCount=0により確認）。実X投稿は0件。
+
 ## Step 10: 登録女優起点の商品取得・候補生成（完了）
 
 - `ActressProductProvider`と`ProductMetadataProvider`、`sync:actresses` CLIを追加した。前者は有効かつ新作対象女優の正式名・aliasesごとにFANZA ItemListを`sort=date`、`hits=5`、`offset=1`で検索し、content_id重複を除外する。metadata補完後のレスポンス女優名が検索語と厳密一致した商品だけを返す。
