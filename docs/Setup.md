@@ -177,6 +177,8 @@ persist後、既存女優名・aliasに一致した場合だけ`product_actresse
 
 `npm run posts:run`は既定でpreviewを一回実行し、X APIと投稿履歴を更新しません。`npm run posts:run -- --execute`はexecuteモードを選びますが、これだけで`DRY_RUN`をfalseにはしません。実投稿には環境変数で明示した`DRY_RUN=false`と必要なX認証情報が必要です。
 
+Schedulerのlive実行にはさらに`SCHEDULER_ENABLED=true`と`HH:mm`形式の`SCHEDULER_TIME_JST`が必要です。時刻は運用者決定まで未設定にし、CLIはPostgreSQL advisory lockを取得できない場合に実行を開始しません。本番1件確認はSchedulerと分離した`npm run posts:live-one`のpreflightを使用します。
+
 件数は`npm run posts:run -- --limit 5`または`--limit=5`で指定でき、上限は5です。出力は件数、productId、カテゴリ、action、statusだけの安全な要約です。preview成功とexecute全成功は終了コード0、executeでpartial_successまたはblockedを含む場合、設定不足・全失敗・already_runningは終了コード1です。CLIは終了時にDB Poolを閉じます。Railway Schedulerの画面設定と分散ロックは未実装です。
 
 ## Railway preview運用確認（Step 6L）

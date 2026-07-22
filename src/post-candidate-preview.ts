@@ -1,11 +1,9 @@
-import { analyzeProductTitle } from './product-title-analysis.js';
-import { generateKillerMessages } from './killer-message-generation.js';
-import { generatePostTemplates } from './post-template-generation.js';
 import type { CandidateSelectionResult, PostCandidate } from './post-candidate-selection.js';
 import type { PostExecutionOrchestrator } from './post-execution-orchestrator.js';
 import type { XPostClient } from './thread-post-execution.js';
 import { isVrTitle } from './vr-product.js';
 import type { PostMediaResolverLike } from './post-media.js';
+import { composePostCandidate } from './post-candidate-content.js';
 
 export type PostCandidatePreviewInput = { limits?: unknown; preferredTemplateStyle?: 'sale_first' | 'actress_first' | 'campaign_first' | 'balanced'; client: XPostClient };
 export type PostCandidatePreviewItem = { productId: number; category: string; action: string; status: string; selectedOrder: number; parentPostCharacterCount: number; replyCharacterCount: number; mediaType?: 'video' | 'image'; killerMessageStyle?: string; warnings: string[]; errors: string[] };
@@ -20,8 +18,7 @@ export class PostCandidatePreviewService {
   private async previewOne(candidate: PostCandidate, selectedOrder: number, input: PostCandidatePreviewInput): Promise<PostCandidatePreviewItem> {
     if (isVrTitle(candidate.title)) return { productId: candidate.productId, category: candidate.category, action: 'blocked', status: 'blocked', selectedOrder, parentPostCharacterCount: 0, replyCharacterCount: 0, warnings: ['vr_excluded'], errors: [] };
     try {
-      const analysis = analyzeProductTitle(candidate.title); const killer = generateKillerMessages({ analysis, actressNames: candidate.actressNames }).primary;
-      const post = generatePostTemplates({ titleAnalysis: analysis, killerMessage: killer, actressNames: candidate.actressNames, preferredStyle: input.preferredTemplateStyle }).primary;
+      const { analysis, killer, post } = composePostCandidate(candidate, input.preferredTemplateStyle);
       if (!post) return { productId: candidate.productId, category: candidate.category, action: 'blocked', status: 'failed', selectedOrder, parentPostCharacterCount: 0, replyCharacterCount: 0, warnings: [], errors: ['template_unavailable'] };
       const resolved = await this.media.resolve(candidate.sampleVideoUrl, candidate.thumbnailUrl);
       if (!resolved.media) return { productId: candidate.productId, category: candidate.category, action: 'blocked', status: 'failed', selectedOrder, parentPostCharacterCount: post.characterCount, replyCharacterCount: Array.from(`作品はこちら\n${candidate.affiliateUrl}`).length, warnings: resolved.warnings, errors: ['media_unavailable'] };

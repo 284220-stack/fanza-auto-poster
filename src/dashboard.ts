@@ -4,7 +4,6 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { timingSafeEqual } from 'node:crypto';
 import { ImapFlow } from 'imapflow';
-import { TwitterApi } from 'twitter-api-v2';
 import { loadState, todayKey } from './state.js';
 import { fetchOfficialSaleCandidates, isOfficialSaleUrl } from './official.js';
 import { startWorker } from './worker.js';
@@ -17,7 +16,6 @@ import { ReplyRetryService } from './reply-retry.js';
 import { ThreadPostPersistenceService } from './thread-post-persistence.js';
 import { PostExecutionOrchestrator } from './post-execution-orchestrator.js';
 import { handlePostExecutionApiRequest } from './post-execution-api.js';
-import { createXApiPostClient } from './x-api-adapter.js';
 import type { XPostClient } from './thread-post-execution.js';
 import { DatabasePostCandidateRepository, PostCandidateSelectionService } from './post-candidate-selection.js';
 import { PostCandidatePreviewService } from './post-candidate-preview.js';
@@ -31,34 +29,39 @@ import { PostMediaResolver } from './post-media.js';
 import { handleManualSaleSyncApiRequest } from './manual-sale-sync-api.js';
 import { ManualSaleSyncService } from './manual-sale-sync.js';
 import { ProductSourceRepository, type TransactionPool } from './product-sources.js';
+import { diagnoseXConnection } from './x-diagnostics.js';
+import { schedulerStatus } from './scheduler-status.js';
 
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 const dataDir = process.env.APP_DATA_DIR ?? fileURLToPath(new URL('../data/', import.meta.url));
 const envPath = join(dataDir, 'settings.env');
 const mime: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8' };
 const secretKeys = new Set(['YAHOO_IMAP_PASSWORD', 'X_APP_KEY', 'X_APP_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET']);
-const editableKeys = ['YAHOO_IMAP_USER', 'YAHOO_IMAP_PASSWORD', 'X_APP_KEY', 'X_APP_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET', 'POLL_MINUTES', 'DAILY_SALE_LIMIT', 'DAILY_NEW_RELEASE_LIMIT', 'DISCLOSURE', 'DRY_RUN', 'OFFICIAL_SALE_MONITOR_ENABLED', 'OFFICIAL_SALE_URLS'];
+const editableKeys = ['YAHOO_IMAP_USER', 'YAHOO_IMAP_PASSWORD', 'X_APP_KEY', 'X_APP_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET', 'POLL_MINUTES', 'DAILY_SALE_LIMIT', 'DAILY_NEW_RELEASE_LIMIT', 'DISCLOSURE', 'DRY_RUN', 'OFFICIAL_SALE_MONITOR_ENABLED', 'OFFICIAL_SALE_URLS', 'SCHEDULER_TIME_JST'];
 
 async function readEnv() {
+  const environment = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
   try {
     const text = await readFile(envPath, 'utf8');
-    return Object.fromEntries(text.split(/\r?\n/).map((line) => line.match(/^([A-Z0-9_]+)=(.*)$/)).filter((match): match is RegExpMatchArray => Boolean(match)).map((match) => [match[1], match[2]]));
-  } catch { return {}; }
+    const saved = Object.fromEntries(text.split(/\r?\n/).map((line) => line.match(/^([A-Z0-9_]+)=(.*)$/)).filter((match): match is RegExpMatchArray => Boolean(match)).map((match) => [match[1], match[2]]));
+    return { ...environment, ...saved };
+  } catch { return environment; }
 }
 
 function settingSummary(values: Record<string, string>) {
   return {
     yahooUser: values.YAHOO_IMAP_USER ?? '',
     pollMinutes: Number(values.POLL_MINUTES ?? 10),
-    saleLimit: Number(values.DAILY_SALE_LIMIT ?? 3),
-    newReleaseLimit: Number(values.DAILY_NEW_RELEASE_LIMIT ?? 3),
+    saleLimit: 2,
+    newReleaseLimit: 2,
     disclosure: values.DISCLOSURE ?? '#PR',
     dryRun: (values.DRY_RUN ?? 'true').toLowerCase() !== 'false',
     officialSaleMonitor: {
       enabled: (values.OFFICIAL_SALE_MONITOR_ENABLED ?? 'false').toLowerCase() === 'true',
       urls: values.OFFICIAL_SALE_URLS ?? ''
     },
-    configured: Object.fromEntries([...secretKeys, 'YAHOO_IMAP_USER'].map((key) => [key, Boolean(values[key])]))
+    scheduler: schedulerStatus(values),
+    configured: Object.fromEntries([...secretKeys, 'YAHOO_IMAP_USER', 'DMM_API_ID', 'DMM_AFFILIATE_ID', 'DATABASE_URL'].map((key) => [key, Boolean(values[key])]))
   };
 }
 
@@ -108,12 +111,6 @@ async function testYahoo(values: Record<string, string>) {
   requireValues(values, ['YAHOO_IMAP_USER', 'YAHOO_IMAP_PASSWORD']);
   const client = new ImapFlow({ host: values.YAHOO_IMAP_HOST || 'imap.mail.yahoo.co.jp', port: Number(values.YAHOO_IMAP_PORT || 993), secure: true, auth: { user: values.YAHOO_IMAP_USER, pass: values.YAHOO_IMAP_PASSWORD }, logger: false });
   try { await client.connect(); } finally { await client.logout().catch(() => undefined); }
-}
-
-async function testX(values: Record<string, string>) {
-  requireValues(values, ['X_APP_KEY', 'X_APP_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET']);
-  const client = new TwitterApi({ appKey: values.X_APP_KEY, appSecret: values.X_APP_SECRET, accessToken: values.X_ACCESS_TOKEN, accessSecret: values.X_ACCESS_SECRET });
-  await client.v2.me();
 }
 
 async function testOfficialSalePages(values: Record<string, string>) {
@@ -233,10 +230,9 @@ export function createDashboardServer() {
     if (url.pathname === '/api/posts/execute') {
       let body: Record<string, unknown>;
       try { body = await readJson(request); } catch { sendJson(response, 400, { message: 'リクエスト本文が不正です。' }); return; }
-      const dryRun = body.dryRun ?? (process.env.DRY_RUN ?? 'true').toLowerCase() !== 'false';
-      const client: XPostClient = dryRun
-        ? { createPost: async () => { throw new Error('dry run'); }, createReply: async () => { throw new Error('dry run'); } }
-        : createXApiPostClient();
+      if (body.dryRun === false) { sendJson(response, 409, { message: 'Dashboardの汎用実行はdry-run限定です。本番1件投稿は専用preflight CLIを使用してください。' }); return; }
+      const dryRun = true;
+      const client: XPostClient = { createPost: async () => { throw new Error('dry run'); }, createReply: async () => { throw new Error('dry run'); } };
       const result = await handlePostExecutionApiRequest(request.method, body, () => {
         const history = new PostHistoryRepository(getDatabasePool() as unknown as Queryable);
         return new PostExecutionOrchestrator(new PostEligibilityService(history), new ReplyRetryService(history), new ThreadPostPersistenceService(history));
@@ -270,8 +266,8 @@ export function createDashboardServer() {
       return;
     }
     if (url.pathname === '/api/test/x' && request.method === 'POST') {
-      await testX(await readEnv());
-      sendJson(response, 200, { message: 'Xアカウントに接続できました。' });
+      const diagnostic = await diagnoseXConnection(await readEnv());
+      sendJson(response, diagnostic.authenticated ? 200 : 400, diagnostic);
       return;
     }
     if (url.pathname === '/api/test/official-sales' && request.method === 'POST') {

@@ -143,6 +143,9 @@ Codexは以下を行わない。
 - 実投稿前に販売中、URL、アフィリエイトID、【PR】、価格・セール、動画、30日制限、文面重複、日次上限を検証する。
 - 条件未達の候補を件数合わせで投稿しない。
 - `DRY_RUN` は実投稿と同じ判定経路を通す。
+- HTTPリクエスト本文やCLI引数だけで環境変数の`DRY_RUN=true`を解除できる実装を禁止する。汎用Dashboard APIはdry-run限定とし、実投稿は承認済みの専用1件経路または有効化済みSchedulerだけに分離する。
+- 本番1件投稿はactress候補1件、再検証済み確認token、`--confirm-one-post`、`DRY_RUN=false`がすべて一致する場合だけ許可し、試行前にDBへ一回限りのguardを予約する。成功・失敗にかかわらず同じguardで連続実行しない。
+- Schedulerのlive実行は、`SCHEDULER_ENABLED=true`、有効なJST時刻、`DRY_RUN=false`、PostgreSQL advisory lockをすべて必須とする。時刻を独断で設定せず、previewはScheduler未有効でも実行可能とする。
 
 ## セール掲載同期の恒久安全ルール
 

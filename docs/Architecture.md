@@ -191,7 +191,7 @@ settings（独立したシステム設定）
 ## 投稿実行フロー統合（Step 6G）
 
 - `PostExecutionOrchestrator`は適格性確認を先に実行し、pending_replyは返信再試行、再投稿期間中はブロック、その他は新規スレッド投稿へ既存サービスを委譲する。
-- Basic認証下の`POST /api/posts/execute`は安全な要約だけを返す。productId単位の同一プロセス内ロックがあり、候補選定・preview・一回実行CLI・media添付は後続節で統合済みだが、分散ロックは未実装である。
+- Basic認証下の`POST /api/posts/execute`はdry-run限定で安全な要約だけを返し、bodyの`dryRun=false`は409で拒否する。本番1件投稿は専用CLIへ分離し、汎用APIから環境の安全設定を迂回できない。
 
 ## 投稿候補選定（Step 6I）
 
@@ -207,7 +207,14 @@ settings（独立したシステム設定）
 
 - `ScheduledPostRunService`は候補選定の順序を保ち、最大5件をタイトル解析・キラーメッセージ・投稿テンプレートを経由して既存`PostExecutionOrchestrator`へ渡す。previewが既定で、executeは明示指定時のみ選べる。
 - previewは常にdryRunとしてOrchestratorを通し、X API・投稿履歴を更新しない。executeも`DRY_RUN=false`が環境変数で明示されない限りdryRunのままであり、30日再投稿禁止とpending_reply優先はOrchestratorへ委譲する。
-- 同一プロセス内の実行ロックでpreview/executeを問わず重複起動を拒否し、finallyで解除する。分散ロックは未実装のため、Railway Schedulerは単一インスタンスで起動する必要がある。
+- 同一プロセス内ロックに加え、CLIは専用接続でPostgreSQL session advisory lockを取得する。取得不能時は候補選定・X APIを開始せず終了コード1とし、finallyでunlockして接続を返す。live実行は`SCHEDULER_ENABLED=true`、有効な`SCHEDULER_TIME_JST`、`DRY_RUN=false`が揃う場合だけ許可する。
+- Scheduler liveは`settings`へ`Asia/Tokyo`の日付別guardをX通信前に`ON CONFLICT DO NOTHING`で予約し、同日2回目を拒否する。候補Repositoryは女優ごとの最低投稿間隔と直近7日の週間上限を親投稿履歴から判定する。カテゴリ別上限はsale 2、actress 2、favorite_sale 1、合計5である。
+
+## X診断・本番1件ガード
+
+- `diagnoseXConnection`は4つのX資格情報の設定有無を確認し、`v2.me()`だけでread-only認証する。応答は認証可否とアカウントIDの不可逆な短縮hashだけで、資格情報・handle・IDを返さない。書込み、media upload、plan/rate limitは実投稿なしに断定しない。
+- `npm run posts:live-one`はactressだけを最大1件選び、共通本文生成、PR表記、親本文URLなし、公式media、VR、affiliate URLを確認して本文・media種別・確認tokenを表示するpreflightである。X APIとDBを変更しない。
+- live実行は`--execute --confirm-one-post --token <preflight token>`と`DRY_RUN=false`の一致を必須とし、専用advisory lockと`settings.live_one_post_attempt`の一回限り予約後に同じ候補を再検証してOrchestratorを一回だけ呼ぶ。guardは成功・失敗にかかわらず自動解除しない。
 
 ## Railway preview運用確認（Step 6L）
 
