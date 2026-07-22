@@ -15,6 +15,26 @@ export type FavoriteSyncResult = FavoriteSyncPlan & {
   uniqueProductCount: number;
   matchedProductCount: number;
   unmatchedProductCount: number;
+  saveCandidateCount: number;
+  metadataUnavailableCount: number;
+  metadataFailedCount: number;
+  vrExcludedCount: number;
+  createdProductCount: number;
+  updatedProductCount: number;
+  failedProductCount: number;
+};
+
+export type FavoriteImportPreview = {
+  items: import('./providers.js').ProviderItem[];
+  saveCandidateCount: number;
+  metadataUnavailableCount: number;
+  failedCount: number;
+  vrExcludedCount: number;
+};
+
+export type FavoriteProductImporter = {
+  preview(urls: readonly string[]): Promise<FavoriteImportPreview>;
+  persist(preview: FavoriteImportPreview): Promise<{ createdCount: number; updatedCount: number; skippedCount: number; failedCount: number }>;
 };
 
 export type FavoriteSyncStore = {
@@ -24,7 +44,7 @@ export type FavoriteSyncStore = {
 };
 
 export class FavoriteSyncError extends Error {
-  constructor(message: string, public readonly status: 400 | 409 = 400) {
+  constructor(message: string, public readonly status: 400 | 409 | 500 = 400) {
     super(message);
     this.name = 'FavoriteSyncError';
   }
@@ -81,31 +101,50 @@ export class FavoriteRepository implements FavoriteSyncStore {
 }
 
 export class FavoriteSyncService {
-  constructor(private readonly store: FavoriteSyncStore) {}
+  constructor(private readonly store: FavoriteSyncStore, private readonly importer?: FavoriteProductImporter) {}
 
   async sync(urls: readonly string[], persist = false): Promise<FavoriteSyncResult> {
     const extracted = urls.map(extractFanzaContentId);
     const contentIds = [...new Set(extracted.filter((value): value is string => value !== undefined))];
     const invalidCount = extracted.length - extracted.filter(Boolean).length;
+    if (persist && (urls.length === 0 || contentIds.length === 0)) throw new FavoriteSyncError('空のお気に入り集合は同期できません。');
+    if (persist && invalidCount > 0) throw new FavoriteSyncError('公式商品URLとして確認できない入力が含まれています。');
     const matched = await this.store.resolveProductIds(contentIds);
     const matchedContentIds = new Set(matched.map((value) => value.contentId.toLowerCase()));
-    const unmatchedProductCount = contentIds.filter((value) => !matchedContentIds.has(value)).length;
+    const unmatchedContentIds = contentIds.filter((value) => !matchedContentIds.has(value));
+    const unmatchedProductCount = unmatchedContentIds.length;
+    const unmatchedSet = new Set(unmatchedContentIds);
+    const unmatchedUrls = urls.filter((url, index) => {
+      const id = extracted[index];
+      if (!id || !unmatchedSet.has(id)) return false;
+      unmatchedSet.delete(id);
+      return true;
+    });
+    const preview = unmatchedUrls.length > 0 && this.importer
+      ? await this.importer.preview(unmatchedUrls)
+      : emptyImportPreview();
     const productIds = [...new Set(matched.map((value) => value.productId))];
-    const plan = await this.store.planReplacement(productIds);
+    const basePlan = await this.store.planReplacement(productIds);
+    const plan = { ...basePlan, createdCount: basePlan.createdCount + preview.saveCandidateCount };
 
     if (persist) {
-      if (urls.length === 0 || contentIds.length === 0) throw new FavoriteSyncError('空のお気に入り集合は同期できません。');
-      if (invalidCount > 0) throw new FavoriteSyncError('公式商品URLとして確認できない入力が含まれています。');
-      if (unmatchedProductCount > 0) throw new FavoriteSyncError('商品管理に未登録の商品が含まれています。', 409);
-      const persisted = await this.store.replace(productIds);
-      return summary(false, urls.length, contentIds.length, invalidCount, matched.length, unmatchedProductCount, persisted);
+      if (unmatchedProductCount > 0 && !this.importer) throw new FavoriteSyncError('商品管理に未登録の商品が含まれています。', 409);
+      if (preview.saveCandidateCount !== unmatchedProductCount || preview.metadataUnavailableCount > 0 || preview.failedCount > 0 || preview.vrExcludedCount > 0) throw new FavoriteSyncError('安全に補完できないお気に入り商品が含まれています。', 409);
+      const imported = await this.importer?.persist(preview) ?? { createdCount: 0, updatedCount: 0, skippedCount: 0, failedCount: 0 };
+      if (imported.failedCount > 0 || imported.skippedCount > 0 || imported.createdCount + imported.updatedCount !== preview.saveCandidateCount) throw new FavoriteSyncError('お気に入り商品の保存に失敗しました。', 500);
+      const resolved = await this.store.resolveProductIds(contentIds);
+      if (resolved.length !== contentIds.length) throw new FavoriteSyncError('保存後の商品照合に失敗しました。', 500);
+      const persisted = await this.store.replace([...new Set(resolved.map((value) => value.productId))]);
+      return summary(false, urls.length, contentIds.length, invalidCount, resolved.length, 0, preview, imported, persisted);
     }
 
-    return summary(true, urls.length, contentIds.length, invalidCount, matched.length, unmatchedProductCount, plan);
+    return summary(true, urls.length, contentIds.length, invalidCount, matched.length, unmatchedProductCount, preview, undefined, plan);
   }
 }
 
-function summary(checkOnly: boolean, receivedCount: number, uniqueProductCount: number, invalidCount: number, matchedProductCount: number, unmatchedProductCount: number, plan: FavoriteSyncPlan): FavoriteSyncResult {
+function emptyImportPreview(): FavoriteImportPreview { return { items: [], saveCandidateCount: 0, metadataUnavailableCount: 0, failedCount: 0, vrExcludedCount: 0 }; }
+
+function summary(checkOnly: boolean, receivedCount: number, uniqueProductCount: number, invalidCount: number, matchedProductCount: number, unmatchedProductCount: number, preview: FavoriteImportPreview, imported: { createdCount: number; updatedCount: number; failedCount: number } | undefined, plan: FavoriteSyncPlan): FavoriteSyncResult {
   return {
     checkOnly,
     receivedCount,
@@ -114,6 +153,13 @@ function summary(checkOnly: boolean, receivedCount: number, uniqueProductCount: 
     uniqueProductCount,
     matchedProductCount,
     unmatchedProductCount,
+    saveCandidateCount: preview.saveCandidateCount,
+    metadataUnavailableCount: preview.metadataUnavailableCount,
+    metadataFailedCount: preview.failedCount,
+    vrExcludedCount: preview.vrExcludedCount,
+    createdProductCount: imported?.createdCount ?? 0,
+    updatedProductCount: imported?.updatedCount ?? 0,
+    failedProductCount: imported?.failedCount ?? 0,
     ...plan
   };
 }

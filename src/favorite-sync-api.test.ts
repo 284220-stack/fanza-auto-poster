@@ -11,6 +11,13 @@ const result: FavoriteSyncResult = {
   uniqueProductCount: 1,
   matchedProductCount: 1,
   unmatchedProductCount: 0,
+  saveCandidateCount: 0,
+  metadataUnavailableCount: 0,
+  metadataFailedCount: 0,
+  vrExcludedCount: 0,
+  createdProductCount: 0,
+  updatedProductCount: 0,
+  failedProductCount: 0,
   currentCount: 0,
   createdCount: 1,
   refreshedCount: 0,
@@ -29,7 +36,7 @@ assert.equal((await handleFavoriteSyncApiRequest('POST', '/api/favorites/sync', 
 assert.equal((await handleFavoriteSyncApiRequest('POST', '/api/favorites/sync', { urls: [1] }, create))?.status, 400);
 assert.equal((await handleFavoriteSyncApiRequest('POST', '/api/favorites/sync', { urls: [], persist: 'yes' }, create))?.status, 400);
 assert.equal((await handleFavoriteSyncApiRequest('POST', '/api/favorites/sync', { urls: [], secret: true }, create))?.status, 400);
-assert.equal((await handleFavoriteSyncApiRequest('POST', '/api/favorites/sync', { urls: Array.from({ length: 501 }, () => 'https://video.dmm.co.jp/av/content/?id=a') }, create))?.status, 400);
+assert.equal((await handleFavoriteSyncApiRequest('POST', '/api/favorites/sync', { urls: Array.from({ length: 21 }, () => 'https://video.dmm.co.jp/av/content/?id=a') }, create))?.status, 400);
 
 const checked = await handleFavoriteSyncApiRequest('POST', '/api/favorites/sync', { urls: ['https://video.dmm.co.jp/av/content/?id=known'] }, create);
 assert.equal(checked?.status, 200);
