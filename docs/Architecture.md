@@ -61,6 +61,13 @@ settings（独立したシステム設定）
 - `persist=true`は入力がすべて妥当かつ既存商品へ一致する場合だけ、既存の`favorites`を単一SQLでスナップショット置換する。空集合、無効URL、未登録商品がある場合は変更しない。FANZAの認証情報、Cookie、閲覧セッションは扱わない。
 - 未登録商品の公式API補完は`FavoriteProductProvider`の責務として後続Stepへ分離する。同期APIは商品を自動作成しない。
 
+## お気に入り商品Provider
+
+- `FavoriteProductProvider`は公式商品URLから抽出したcontent_idをページ単位で重複排除し、`ProductMetadataProvider`を通じてDMM WebサービスItemListの`cid`検索で商品情報を補完する。
+- metadataは`source=favorite`へ正規化し、タイトル、商品URL、アフィリエイトURL、発売日、女優、サンプル動画、画像、取得可能な固定価格を返す。価格不明は保存候補から除外しない。
+- `ProductMetadataProvider`と`FavoriteProductProvider`の両方で共通VR判定を適用する。無効URL、metadataなし、取得失敗は安全なreason codeと件数にし、生URL、商品名、認証値は出力しない。
+- このProviderは読み取り専用である。商品upsertと`favorites`更新への接続、Chrome拡張は別Stepで行う。
+
 ## 商品取得Provider基盤（Step 4B）
 
 - Provider共通モデルはsource、外部商品ID、URL、価格、女優名、取得日時、rawDataを表し、Provider Registryがsource単位で実装を登録・取得する。
