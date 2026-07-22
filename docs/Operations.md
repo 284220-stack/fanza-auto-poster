@@ -103,7 +103,7 @@ Dashboardの「同期・実行」からX接続確認を押す。処理は`v2.me(
 npm run posts:live-one
 ```
 
-actress候補1件、商品タイトル、親投稿本文、media種別、自己返信あり、実行件数1、確認tokenを確認する。affiliate URL全文は出力しない。preflightはX API・DBを変更しない。
+actress候補1件、商品タイトル、親投稿本文、media種別、自己返信あり、実行件数1、確認tokenを確認する。親本文の先頭が厳密に`【PR】`で、確認対象の商品名が含まれ、URLがないことを確認する。affiliate URL全文は出力しない。preflightはX API・DBを変更しない。
 
 承認後のlive実行は、運用者が確認したtokenを使う専用コマンドだけに限定する。`DRY_RUN=false`、`--execute`、`--confirm-one-post`、tokenの全条件が必要で、試行前に`settings`へ一回限りguardを予約する。成功・失敗にかかわらず連続実行せず、実行直後に`DRY_RUN=true`へ戻し、親投稿、media、自己返信、履歴、pending replyを確認する。Dashboardの汎用投稿APIはlive実行に使用できない。
 

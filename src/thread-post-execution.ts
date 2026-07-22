@@ -15,7 +15,7 @@ export class ThreadPostExecutionService {
     const complete = (result: Omit<ThreadPostResult, 'startedAt' | 'completedAt'>): ThreadPostResult => ({ ...result, startedAt, completedAt: new Date().toISOString() });
     if (this.running) return complete({ status: 'failed', parentPosted: false, replyPosted: false, warnings: [], errors: ['already_running'] });
     if (!input.parentPostText.trim()) return complete({ status: 'failed', parentPosted: false, replyPosted: false, warnings: [], errors: ['invalid_parent_post'] });
-    if (/https?:\/\//iu.test(input.parentPostText) || Array.from(input.parentPostText).length > (input.maxLength ?? 280)) return complete({ status: 'failed', parentPosted: false, replyPosted: false, warnings: [], errors: ['invalid_parent_post'] });
+    if (!input.parentPostText.startsWith('【PR】\n') || /https?:\/\//iu.test(input.parentPostText) || Array.from(input.parentPostText).length > (input.maxLength ?? 280)) return complete({ status: 'failed', parentPosted: false, replyPosted: false, warnings: [], errors: ['invalid_parent_post'] });
     const template = generateReplyTemplate({ affiliateUrl: input.affiliateUrl, maxLength: input.maxLength });
     if (!template.reply) return complete({ status: 'failed', parentPosted: false, replyPosted: false, warnings: template.warnings, errors: ['invalid_reply'] });
     if (input.dryRun) return complete({ status: 'dry_run', parentPosted: false, replyPosted: false, warnings: [], errors: [], replyText: template.reply.text });

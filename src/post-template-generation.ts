@@ -35,11 +35,12 @@ export function generatePostTemplates(input: PostTemplateInput): PostTemplateRes
   const maxLength = input.maxLength ?? DEFAULT_MAX_LENGTH;
   const warnings: PostTemplateWarning[] = [];
   const actress = input.actressNames?.map((name) => name.trim()).find(Boolean);
+  const product = productLine(input.productTitle);
   const campaign = input.campaignName ?? input.titleAnalysis.campaignName;
   const message = input.killerMessage?.text;
   const facts = input.titleAnalysis;
   const styles: PostTemplateStyle[] = ['sale_first', 'actress_first', 'campaign_first', 'balanced'];
-  const posts = styles.map((style) => createPost(style, { message, actress, campaign, facts }, maxLength, warnings)).filter((post): post is GeneratedPost => post !== undefined);
+  const posts = styles.map((style) => createPost(style, { message, actress, campaign, product, facts }, maxLength, warnings)).filter((post): post is GeneratedPost => post !== undefined);
   const unique = posts.filter((post, index) => posts.findIndex((other) => other.text === post.text) === index);
   if (!unique.length) {
     if (!message && !actress && !campaign && !facts.hasPointBack && !facts.discountPercent && !facts.isHalfPrice && !facts.saleSignals.includes('popular')) warnings.push('no_post_facts');
@@ -49,18 +50,18 @@ export function generatePostTemplates(input: PostTemplateInput): PostTemplateRes
   return { primary: ordered[0], alternatives: ordered.slice(1, 4), warnings: [...new Set(warnings)] };
 }
 
-function createPost(style: PostTemplateStyle, context: { message?: string; actress?: string; campaign?: string; facts: ProductTitleAnalysis }, maxLength: number, warnings: PostTemplateWarning[]): GeneratedPost | undefined {
+function createPost(style: PostTemplateStyle, context: { message?: string; actress?: string; campaign?: string; product?: string; facts: ProductTitleAnalysis }, maxLength: number, warnings: PostTemplateWarning[]): GeneratedPost | undefined {
   const feature = featureLine(context);
   const offer = offerLine(context);
   const actressLine = context.actress ? `${context.actress}出演` : undefined;
   const hashtags = hashtagsFor(context.actress);
   const lines = style === 'actress_first'
-    ? ['PR', actressLine, context.message, feature, offer, hashtags.join(' ') ]
+    ? ['【PR】', context.message ?? actressLine, context.product, offer, hashtags.join(' ') ]
     : style === 'campaign_first'
-      ? ['PR', context.campaign ? `${context.campaign}対象作品` : context.message, actressLine, feature, offer, hashtags.join(' ')]
+      ? ['【PR】', context.campaign ? `${context.campaign}対象作品` : context.message, context.product, actressLine, offer, hashtags.join(' ')]
       : style === 'balanced'
-        ? ['PR', context.message, feature, actressLine, offer, hashtags.join(' ')]
-        : ['PR', context.message, offer, actressLine, feature, hashtags.join(' ')];
+        ? ['【PR】', context.message, context.product, actressLine, offer, feature, hashtags.join(' ')]
+        : ['【PR】', context.message, context.product, offer, actressLine, feature, hashtags.join(' ')];
   const text = lines.filter((line): line is string => Boolean(line)).filter((line, index, all) => all.indexOf(line) === index).join('\n\n');
   if (!text || containsUrl(text) || lengthOf(text) > maxLength) {
     if (lengthOf(text) > maxLength) warnings.push('post_too_long');
@@ -75,6 +76,12 @@ function featureLine(context: { actress?: string; campaign?: string; facts: Prod
   if (context.actress) return '出演作をチェック';
   if (context.facts.discountPercent !== undefined || context.facts.isHalfPrice || context.facts.hasPointBack) return 'お得な対象作品';
   return '注目作品をチェック';
+}
+
+function productLine(value: string | undefined) {
+  const normalized = value?.trim().replace(/\s+/gu, ' ');
+  if (!normalized) return undefined;
+  return Array.from(normalized).length <= 80 ? normalized : `${Array.from(normalized).slice(0, 79).join('')}…`;
 }
 
 function offerLine(context: { message?: string; campaign?: string; facts: ProductTitleAnalysis }) {

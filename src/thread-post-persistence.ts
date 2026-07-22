@@ -10,7 +10,7 @@ export class ThreadPostPersistenceService {
   constructor(private readonly history: PostHistoryRepository) {}
   async run(input: PersistedThreadPostInput): Promise<PersistedThreadPostResult> {
     const startedAt = new Date().toISOString(); const done = (result: Omit<PersistedThreadPostResult, 'startedAt' | 'completedAt'>) => ({ ...result, startedAt, completedAt: new Date().toISOString() });
-    if (!Number.isInteger(input.productId) || input.productId < 1 || !input.parentPostText.trim() || /https?:\/\//iu.test(input.parentPostText)) return done({ status: 'failed', productId: input.productId, parentHistorySaved: false, replyHistorySaved: false, retryReplyPossible: false, warnings: [], errors: ['invalid_input'] });
+    if (!Number.isInteger(input.productId) || input.productId < 1 || !input.parentPostText.startsWith('【PR】\n') || /https?:\/\//iu.test(input.parentPostText)) return done({ status: 'failed', productId: input.productId, parentHistorySaved: false, replyHistorySaved: false, retryReplyPossible: false, warnings: [], errors: ['invalid_input'] });
     if (this.running.has(input.productId)) return done({ status: 'already_running', productId: input.productId, parentHistorySaved: false, replyHistorySaved: false, retryReplyPossible: false, warnings: [], errors: [] });
     const reply = generateReplyTemplate({ affiliateUrl: input.affiliateUrl });
     if (!reply.reply) return done({ status: 'failed', productId: input.productId, parentHistorySaved: false, replyHistorySaved: false, retryReplyPossible: false, warnings: reply.warnings, errors: ['invalid_reply'] });

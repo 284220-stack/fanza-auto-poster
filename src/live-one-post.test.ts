@@ -20,7 +20,8 @@ assert.equal(preflight.category, 'actress');
 assert.equal(preflight.mediaType, 'image');
 assert.equal(preflight.selfReply, true);
 assert.doesNotMatch(preflight.parentPostText ?? '', /https?:\/\//u);
-assert.match(preflight.parentPostText ?? '', /^PR\n/u);
+assert.match(preflight.parentPostText ?? '', /^【PR】\n/u);
+assert.match(preflight.parentPostText ?? '', /通常作品タイトル/u);
 assert.equal(postCalls, 0);
 assert.equal(reserveCalls, 0);
 

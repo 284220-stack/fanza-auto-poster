@@ -4,10 +4,12 @@ const client = { createPost: async () => ({ postId: 'p', textLength: 1, createdA
 const newThread = { run: async () => ({ status: 'success' as const, parentPostId: 'p', replyPostId: 'r', retryReplyPossible: false, warnings: [], errors: [] }) } as never;
 const retry = { run: async () => ({ status: 'success' as const, parentPostId: 'p', replyPostId: 'r', warnings: [], errors: [] }) } as never;
 const eligible = { check: async () => ({ eligible: true, reason: 'eligible' as const }) } as never;
-assert.equal((await new PostExecutionOrchestrator(eligible, retry, newThread).run({ productId: 1, parentPostText: 'PR', affiliateUrl: 'https://example.com', client })).action, 'new_thread');
+assert.equal((await new PostExecutionOrchestrator(eligible, retry, newThread).run({ productId: 1, parentPostText: '【PR】\n本文', affiliateUrl: 'https://example.com', client })).action, 'new_thread');
 const pending = { check: async () => ({ eligible: false, reason: 'pending_reply_exists' as const }) } as never;
-assert.equal((await new PostExecutionOrchestrator(pending, retry, newThread).run({ productId: 1, parentPostText: 'PR', affiliateUrl: 'https://example.com', client })).action, 'retry_reply');
+assert.equal((await new PostExecutionOrchestrator(pending, retry, newThread).run({ productId: 1, parentPostText: '【PR】\n本文', affiliateUrl: 'https://example.com', client })).action, 'retry_reply');
 const blocked = { check: async () => ({ eligible: false, reason: 'repost_window_active' as const }) } as never;
-assert.equal((await new PostExecutionOrchestrator(blocked, retry, newThread).run({ productId: 1, parentPostText: 'PR', affiliateUrl: 'https://example.com', client })).status, 'blocked');
-assert.equal((await new PostExecutionOrchestrator(eligible, retry, newThread).run({ productId: 0, parentPostText: 'PR', affiliateUrl: 'https://example.com', client })).status, 'failed');
+assert.equal((await new PostExecutionOrchestrator(blocked, retry, newThread).run({ productId: 1, parentPostText: '【PR】\n本文', affiliateUrl: 'https://example.com', client })).status, 'blocked');
+assert.equal((await new PostExecutionOrchestrator(eligible, retry, newThread).run({ productId: 0, parentPostText: '【PR】\n本文', affiliateUrl: 'https://example.com', client })).status, 'failed');
+const missingDisclosure = await new PostExecutionOrchestrator(eligible, retry, newThread).run({ productId: 1, parentPostText: 'PR', affiliateUrl: 'https://example.com', client });
+assert.deepEqual(missingDisclosure.errors, ['pr_disclosure_missing']);
 console.log('post execution orchestrator: ok');

@@ -202,6 +202,7 @@ settings（独立したシステム設定）
 
 - `PostCandidatePreviewService`は選定済み候補をタイトル解析、キラーメッセージ、投稿テンプレート、OrchestratorのdryRunへ順に渡す。本文・URLを返さず、件数、文字数、action、statusだけを返す。
 - X APIと投稿履歴は更新せず、候補不足・blocked・retry_replyを安全な要約として引き継ぐ。
+- 共通本文composerは先頭`【PR】`、公式商品名（最大80文字）、カテゴリに応じた事実ベース訴求、最大2 hashtagを生成する。親本文にURLを含めず、Orchestratorは`【PR】`欠損をlive/dry-run共通で拒否する。
 
 ## 投稿スケジューラー実行基盤（Step 6K）
 
