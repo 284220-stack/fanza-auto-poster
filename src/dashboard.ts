@@ -24,9 +24,11 @@ import type { XPostClient } from './thread-post-execution.js';
 import { DatabasePostCandidateRepository, PostCandidateSelectionService } from './post-candidate-selection.js';
 import { PostCandidatePreviewService } from './post-candidate-preview.js';
 import { handlePostHistoryApiRequest } from './post-history-api.js';
-import { ProductRepository } from './products.js';
+import { ProductRepository, ProductService } from './products.js';
 import { FavoriteRepository, FavoriteSyncService } from './favorites.js';
 import { handleFavoriteSyncApiRequest } from './favorite-sync-api.js';
+import { FavoriteProductImportService } from './favorite-product-import.js';
+import { ProductMetadataProvider, type DmmHttpClient } from './actress-product-provider.js';
 
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 const dataDir = process.env.APP_DATA_DIR ?? fileURLToPath(new URL('../data/', import.meta.url));
@@ -183,7 +185,12 @@ export function createDashboardServer() {
         request.method,
         url.pathname,
         body,
-        () => new FavoriteSyncService(new FavoriteRepository(getDatabasePool() as unknown as Queryable))
+        () => {
+          const db = getDatabasePool() as unknown as Queryable;
+          const http: DmmHttpClient = { async get(target, signal) { const remote = await fetch(target, { signal }); return { status: remote.status, json: () => remote.json() }; } };
+          const products = new ProductService(new ProductRepository(db));
+          return new FavoriteSyncService(new FavoriteRepository(db), new FavoriteProductImportService(new ProductMetadataProvider(http), products));
+        }
       );
       if (result) { sendJson(response, result.status, result.body); return; }
     }

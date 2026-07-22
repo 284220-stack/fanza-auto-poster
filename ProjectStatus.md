@@ -1,5 +1,14 @@
 # Project Status
 
+## Step 11C: お気に入り同期とmetadata補完の統合（完了、2026-07-23）
+
+- `FavoriteSyncService`へ`FavoriteProductImportService`を接続した。同期APIは最大20件に制限し、既存商品はそのまま照合、未知content_idは`FavoriteProductProvider`で公式metadataをcheck-only補完する。check-onlyは商品・favorites・女優関連を変更せず、保存候補、metadata不能、取得失敗、VR除外、商品保存予定、お気に入り置換予定を件数だけで返す。
+- 明示`persist=true`では、空集合・不正URL・metadata不能・取得失敗・VR・商品保存失敗のいずれかがある場合にfavoritesを変更しない。全商品upsert後にcontent_idを再照合し、全件一致した場合だけ`favorites`を単一SQLで置換する。お気に入り補完は既存のsale状態を上書きせず、`product_actresses`も変更しない。
+- テストは未知商品のcheck-only非更新、全件成功persist、metadata不能、商品保存失敗、favorites非更新、20件上限、価格NULL、sale状態維持、女優関連非更新を追加した。ローカルCompletion Gateは`npm run check`、`npm test`、`npm run build`、`git diff --check`がすべて成功。
+- Railway production deployment `968da346-2717-4c77-9207-d55c8840387c`はSUCCESS。公式ItemListを低頻度に2回（最新5件では安全な未知商品なし、offset 101で1件）だけ確認し、DB未登録かつ非VRのURL1件を非表示で同期APIへcheck-only送信した。HTTP 200、matched=0、unmatched=1、saveCandidate=1、metadataUnavailable=0、metadataFailed=0、VR除外=0、favorites作成予定=1、商品作成実績=0だった。
+- production DBはproducts 39→39、favorites 0→0、product_actresses 8→8で変更なし。お気に入りpersist、商品persist、migration、Chrome拡張は未実施。`DRY_RUN=true`、投稿Scheduler未有効、実X投稿なし。
+- 残課題: Chrome拡張からのURL収集・送信、実際の運用者お気に入り集合によるcheck-only/persist、SalePageProvider掲載集合との照合、favorite_sale preview。Chrome拡張のページ読取りはブラウザ自動操作・年齢認証状態に触れるため承認ゲートである。
+
 ## Step 11B: FavoriteProductProvider（完了、2026-07-23）
 
 - `FavoriteProductProvider`を追加し、FANZA/DMM公式商品URLから抽出したcontent_idを重複除去し、1ページ最大20件を順次`ProductMetadataProvider`の公式ItemList `cid`検索で補完できるようにした。API応答の商品IDが要求content_idと厳密一致する場合だけ採用する。

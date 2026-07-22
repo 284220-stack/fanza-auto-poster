@@ -58,15 +58,15 @@ settings（独立したシステム設定）
 
 - Basic認証下の`POST /api/favorites/sync`はFANZA/DMM公式商品URLの配列を受け取り、明確な`cid`、`content_id`またはvideo.dmm.co.jpの`id`からcontent_idを抽出する。任意ドメインや曖昧なパスからIDを推測しない。
 - 既定はcheck-onlyで、受信、妥当、重複除去、既存商品一致、未一致、作成予定、更新予定、削除予定の件数だけを返す。URLや商品名は返さない。
-- `persist=true`は入力がすべて妥当かつ既存商品へ一致する場合だけ、既存の`favorites`を単一SQLでスナップショット置換する。空集合、無効URL、未登録商品がある場合は変更しない。FANZAの認証情報、Cookie、閲覧セッションは扱わない。
-- 未登録商品の公式API補完は`FavoriteProductProvider`の責務として後続Stepへ分離する。同期APIは商品を自動作成しない。
+- 一回の入力は最大20件とし、未知content_idは`FavoriteProductProvider`で低頻度に順次補完する。check-onlyではmetadata取得予定と商品・お気に入り保存予定の件数だけを返し、DBを変更しない。
+- `persist=true`は入力がすべて妥当で、非VRのmetadataが全件取得でき、商品upsertが全件成功した場合だけ、既存の`favorites`を単一SQLでスナップショット置換する。空集合、無効URL、metadata不能、VR、商品保存失敗がある場合はfavoritesを変更しない。FANZAの認証情報、Cookie、閲覧セッションは扱わない。
 
 ## お気に入り商品Provider
 
 - `FavoriteProductProvider`は公式商品URLから抽出したcontent_idをページ単位で重複排除し、`ProductMetadataProvider`を通じてDMM WebサービスItemListの`cid`検索で商品情報を補完する。
 - metadataは`source=favorite`へ正規化し、タイトル、商品URL、アフィリエイトURL、発売日、女優、サンプル動画、画像、取得可能な固定価格を返す。価格不明は保存候補から除外しない。
 - `ProductMetadataProvider`と`FavoriteProductProvider`の両方で共通VR判定を適用する。無効URL、metadataなし、取得失敗は安全なreason codeと件数にし、生URL、商品名、認証値は出力しない。
-- このProviderは読み取り専用である。商品upsertと`favorites`更新への接続、Chrome拡張は別Stepで行う。
+- `FavoriteProductImportService`がProviderのcheck-only結果を再取得せず商品保存へ渡し、保存後に全content_idを再照合する。お気に入り補完は`product_actresses`を変更せず、女優関連は女優起点同期が管理する。Favorite同期Serviceは再照合成功後だけfavoritesを更新する。Chrome拡張は別Stepで行う。
 
 ## 商品取得Provider基盤（Step 4B）
 

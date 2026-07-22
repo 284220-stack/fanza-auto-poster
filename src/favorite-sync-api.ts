@@ -11,7 +11,7 @@ export async function handleFavoriteSyncApiRequest(method: string | undefined, p
     const unknownKey = Object.keys(body).find((key) => key !== 'urls' && key !== 'persist');
     if (unknownKey) throw new FavoriteSyncError('指定できない項目が含まれています。');
     if (!Array.isArray(body.urls) || !body.urls.every((value) => typeof value === 'string')) throw new FavoriteSyncError('urlsは文字列の配列で指定してください。');
-    if (body.urls.length > 500) throw new FavoriteSyncError('一度に同期できるURLは500件までです。');
+    if (body.urls.length > 20) throw new FavoriteSyncError('一度に同期できるURLは20件までです。');
     if (body.persist !== undefined && typeof body.persist !== 'boolean') throw new FavoriteSyncError('persistはbooleanで指定してください。');
     const result = await create().sync(body.urls, body.persist === true);
     return { status: 200, body: { result } };

@@ -29,7 +29,7 @@ export async function persistSaleProducts(provider: ProductProvider, writer: Pro
 
 function merge(current: Product | undefined, item: ProviderItem): ProductInput {
   const price = pickPrice(item.price, current?.price); const salePrice = pickPrice(item.salePrice, current?.salePrice); const hasIncomingPrice = item.price !== null || item.salePrice !== null;
-  return { fanzaProductId: item.externalProductId, title: item.title, productUrl: pick(item.productUrl, current?.productUrl)!, affiliateUrl: pick(item.affiliateUrl, current?.affiliateUrl), sampleVideoUrl: pick(item.sampleVideoUrl, current?.sampleVideoUrl), thumbnailUrl: pick(item.thumbnailUrl, current?.thumbnailUrl), price, salePrice, isSale: hasIncomingPrice ? item.isSale : (current?.isSale ?? false), releaseDate: pick(item.releaseDate, current?.releaseDate), status: 'available' };
+  return { fanzaProductId: item.externalProductId, title: item.title, productUrl: pick(item.productUrl, current?.productUrl)!, affiliateUrl: pick(item.affiliateUrl, current?.affiliateUrl), sampleVideoUrl: pick(item.sampleVideoUrl, current?.sampleVideoUrl), thumbnailUrl: pick(item.thumbnailUrl, current?.thumbnailUrl), price, salePrice, isSale: item.source === 'favorite' ? (current?.isSale ?? false) : (hasIncomingPrice ? item.isSale : (current?.isSale ?? false)), releaseDate: pick(item.releaseDate, current?.releaseDate), status: 'available' };
 }
 function pick<T>(value: T | undefined, current: T | undefined | null) { return typeof value === 'string' && !value.trim() ? current : value ?? current; }
 function pickPrice(value: number | null, current: string | null | undefined) { return value ?? (current === null || current === undefined ? null : Number(current)); }
