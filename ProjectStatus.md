@@ -1,5 +1,36 @@
 # Project Status
 
+## Step 10: 登録女優起点の商品取得・候補生成（完了）
+
+- `ActressProductProvider`と`ProductMetadataProvider`、`sync:actresses` CLIを追加した。前者は有効かつ新作対象女優の正式名・aliasesごとにFANZA ItemListを`sort=date`、`hits=5`、`offset=1`で検索し、content_id重複を除外する。metadata補完後のレスポンス女優名が検索語と厳密一致した商品だけを返す。
+- CLIは既定check-only、`--persist`でのみ既存のupsert/`product_actresses`保存を行う。`--actress <id>`で一名に限定できる。価格不明は保存拒否条件ではない。セール/Favorite/年齢認証Cookie/Scheduler/実投稿/migration/UIは対象外。
+- 候補クエリは登録女優の`target_new_releases`を取得するよう拡張した。新Provider専用テスト、本番check-only・persist・preview、文書最終化、GitHub標準フローは未完了であり、commit/push/PR/mergeはしていない。
+- 再開地点: Providerの正式名/alias/部分一致拒否/重複/metadata失敗/check-only非更新/persist関連保存のテストを追加し、候補選定を`target_new_releases`必須として検証後、Completion GateとRailway production確認を行う。
+- Railway production check-onlyは終了コード0、登録女優3名・検索3名・取得15件・厳密一致15件・不一致0件・重複除外後13商品・エラー0だった。persistは一回だけ実行し、13商品作成・更新0・失敗0、`product_actresses`は15件、女優別関連商品数は各5件となった。
+- previewはactress候補2件を生成したが、既存`PostExecutionOrchestrator`が親投稿本文の`invalid_input`を返し、`selectedCount=2`、`blockedCount=0`、`failedCount=2`となった。候補選定・30日ルール・pending・DRY_RUNは変更していない。このpreview障害はStep 10の取得経路とは別の既存投稿生成/実行経路の不具合として次Stepで修正が必要であるため、Step 10のGitHub完走は保留する。
+- invalid_inputの根本原因は、候補SQLのPostgreSQL bigint商品IDが文字列のまま`PostExecutionOrchestrator`へ渡され、`Number.isInteger`に失敗したことだった。親本文は空でなく、URLを含まず、51文字で正常だった。`p.id::int`でMapperを数値化し、安全な失敗理由（`invalid_product_id`、`empty_parent_post`、`parent_post_contains_url`）を返すようにした。
+- 修正後のRailway previewは`selectedCount=2`、`blockedCount=0`、`failedCount=0`、`invalidInputCount=0`、dry-run成功2件だった。商品同期・persistは再実行していない。DRY_RUN=true、Scheduler未有効、実X投稿なし、migrationなし。セール取得は年齢認証・robots制約のため保留する。
+
+## Step 9: 商品取得アーキテクチャ再設計（調査・設計完了、実装保留）
+
+- 旧`FanzaSaleProvider`はDMM Webサービスの汎用`ItemList`を固定の動画フロアから取得し、価格差で`isSale`を決めている。登録女優を取得起点にしていないため、登録女優の商品がたまたま汎用一覧に入らなければ`product_actresses`も女優候補も作れない。
+- Railway productionで、有効かつ新作対象の登録女優3名をそれぞれ正式名（aliasesは0件）で`ItemList`へ低頻度にcheck-only検索した。`site=FANZA`、`service=digital`、`floor=videoa`、`keyword`、`sort=date`、`hits=5`、`offset=1`で各5件取得し、各5件ともレスポンスの女優名を正式名・alias集合で厳密再検証できた。`ActressSearch`は今回各0件で女優IDを返さず、女優ID利用を実装前提にしない。
+- 女優商品は`ActressProductProvider`（有効・新作対象女優の正式名とaliasesを検索語として使用、ページング、`sort=date`）が商品ID候補を取得し、`ProductMetadataProvider`が`cid`指定の公式API補完を行い、レスポンスの女優名を再検証した場合だけ保存・`product_actresses`関連付けする構成へ分離する。候補商品の重複はcontent_id単位で除外する。
+- 指定セール一覧`https://video.dmm.co.jp/av/list/`は、Cookieなしの低頻度check-onlyで年齢認証URLへ302された。年齢認証の回避、Cookie設定、商品カード・content_id抽出は実施していないため、実URL、表示条件、HTML/JS構造、ページング、セール掲載フィールドは未確定である。robots.txtには`*/list/?*|*|*`のDisallowがあり、利用規約と正規認証済みセッションでの閲覧可否を運用者が確認するまで自動HTML取得を実装しない。
+- セールは価格差で推測せず、将来の`SalePageProvider`が正規に閲覧できるセール一覧の掲載を根拠として商品IDだけを返す。`ProductMetadataProvider`が公式APIで商品情報を補完する。掲載が見えない回は削除せず、`sale_last_seen_at`を更新しないことで候補から外す設計が必要である。
+- 将来の`FavoriteProductProvider`はChrome拡張のURL同期→content_id抽出→`SalePageProvider`集合との照合だけを責務とし、今回は実装変更しない。
+- 取得経路は商品と多対多（同一商品がactress/sale/favoriteの複数起点）になり得るため、単一の`products.source_type`より取得観測用の別テーブル（source type/reference、first seen、last seen）を次実装Stepで検討する。既存スキーマにはセール掲載の現在性・履歴を表す列がないため、`SalePageProvider`を実装するなら最小migrationが必要となる見込み。今回migrationは追加しない。
+- 次の実装Step: 正規認証・利用規約・アクセス頻度の運用判断を先に確定し、女優起点Providerと公式メタデータProviderを小さく実装・テストする。セールページProviderは、正規に取得できるHTML構造と掲載根拠を確認できるまで保留する。`DRY_RUN=true`、Scheduler未有効、実X投稿なし、persistなしを維持した。
+
+## Step 8F: 登録女優による投稿候補生成確認（進行中）
+
+- 実DBの登録女優は3名、全員有効、aliasesは0件だった。今回のProvider 20商品から抽出した女優名は重複除去後16件で、登録済み正式名・aliasとの厳密一致は0件、未一致は16件だった。
+- Railway production内で`DRY_RUN=true`のcheck-onlyを実行し、終了コード0、`configuration/database/provider=ok`、`errorsCount=0`を確認した。続けてpersistを一回だけ実行し、終了コード0、`syncStatus=success`、`fetchedCount=20`、`createdCount=11`、`updatedCount=9`、`failedCount=0`だった。価格不明は21件の観測情報であり、同期エラーではない。
+- persist後の`product_actresses`は0件、関連商品0件、女優別関連商品数は3名とも0件だった。`matchedActressCount=0`、`linkedProductCount=0`、`createdRelationCount=0`である。未登録女優の自動作成、aliasの自動追加、あいまい一致は実施していない。
+- 投稿候補previewは`actressCandidateCount=0`、`selectedCount=0`、`blockedCount=0`、`failedCount=0`だった。セール・favoriteも0件で、warningsは`category_shortage:sale`、`category_shortage:actress`、`category_shortage:favorite_sale`のみだった。商品31件はすべてavailableかつaffiliate URLあり、既存投稿・pending replyは0件のため、女優カテゴリ不足の直接原因は女優名・alias不一致である。
+- 投稿予定画面はproductionでHTTP 200を確認し、候補0件を安全なdry-run previewとして表示する実装になっている。Scheduler未有効、実X投稿なし。
+- 再開条件: 運用者が今回抽出された未一致女優名と一致する正式名を女優管理画面で手動登録するか、既存女優へ対応するaliasを手動追加する。その後、同じfeatureブランチでcheck-only・persist同期・`product_actresses`・女優別関連件数・previewを再確認する。
+
 ## Step 8E: 未一致女優の確認と手動登録支援（完了）
 
 - 実商品20件から抽出した女優名は、重複除去後71件、商品との延べ対応73件だった。既存の正式名・aliasとの厳密一致は0件で、未一致71件、同一女優が複数商品に出現した名前は1件（最大3商品）だった。
