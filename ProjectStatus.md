@@ -1,5 +1,15 @@
 # Project Status
 
+## Step 11A: お気に入り同期API基盤（完了、2026-07-23）
+
+- FANZA/DMM公式商品URLから明確な`cid`、`content_id`またはvideo.dmm.co.jpの`id`だけを抽出し、既存`products.fanza_product_id`と照合する`FavoriteSyncService`と、Basic認証下の`POST /api/favorites/sync`を追加した。任意ドメイン、HTTP URL、曖昧なパス、形式不正IDは受け付けない。
+- APIはcheck-onlyが既定で、URLや商品名を返さず、受信・妥当・不正・重複除去・一致・未一致・作成予定・更新予定・削除予定の件数だけを返す。`persist=true`でも空集合、不正URL、未登録商品があればDBを変更しない。商品自動作成、FANZA認証情報・Cookieの保存、migrationは行っていない。
+- `favorites`は既存スキーマを利用し、明示persist時の完全一致集合だけを単一SQLでスナップショット置換する。check-only、空集合拒否、部分不正拒否、未知商品拒否、重複URL、公式URL形式、APIエラー秘匿、Dashboardルーティングをテストした。
+- ローカルCompletion Gate: `npm run check`、`npm test`、`npm run build`、`git diff --check`はすべて成功。
+- Railway production deployment `d1bb65c8-4b3a-49f9-82ff-ad10cfb43b9a`はSUCCESS。既存の非VR商品1件をURL非表示でcheck-onlyし、HTTP 200、received=1、valid=1、invalid=0、matched=1、unmatched=0、created予定=1、removed予定=0を確認した。favoritesは実行前後0件でDB変更なし。無効ドメイン1件もHTTP 200、invalid=1、checkOnly=trueで安全に件数化した。DashboardはHTTP 200、productionログに起動例外なし。
+- 安全状態: `DRY_RUN=true`、投稿Scheduler未有効、実X投稿なし。お気に入りpersist、商品同期persist、production DB変更は未実施。
+- 残課題: 未登録content_idを公式APIで補完する`FavoriteProductProvider`、Chrome拡張、sale掲載集合との照合、favorite_sale preview。次の推奨Stepは、URL入力を起点に公式ItemListでmetadataを補完し、VRを多重除外する`FavoriteProductProvider`のcheck-only実装である。
+
 ## production VR誤保存データの限定削除（2026-07-23）
 
 - 削除前にIDs 37, 40, 41, 42, 43が正確に5件、全件でアプリ本体の共通VR判定true、明確なタイトル先頭VR表記、`product_actresses`関連7件、pending投稿0件、投稿履歴0件、X投稿IDなしであることを確認した。非VR商品は対象に含まれなかった。
