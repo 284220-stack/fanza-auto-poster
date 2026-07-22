@@ -152,7 +152,13 @@ settings（独立したシステム設定）
 ## スレッド投稿実行（Step 6D）
 
 - `XPostClient`は`createPost`と`createReply`を抽象化し、`ThreadPostExecutionService`へDIする。親投稿にURLを許可せず、返信テンプレートだけがHTTP/HTTPS URLを1回含む。
-- dryRunは投稿クライアントを呼ばず、親投稿後の返信失敗は親投稿IDと安全な固定エラーを返す`partial_success`とする。動画、DB投稿履歴、実X APIアダプターは後続である。
+- dryRunは投稿クライアントを呼ばず、親投稿後の返信失敗は親投稿IDと安全な固定エラーを返す`partial_success`とする。DB投稿履歴、X APIアダプター、media添付は後続節の実装で統合済みである。
+
+## 投稿media添付
+
+- 候補のサンプル動画、次にサムネイル画像を`PostMediaResolver`で順に検証する。HTTPSかつFANZA/DMM公式配下のホストだけを許可し、redirect先も同じ基準で検証する。
+- HEAD応答のHTTP状態、Content-Type、Content-Lengthを確認し、動画はMP4/MOVかつ50MB以下、画像はJPEG/PNG/WebP/GIFかつ5MB以下を許可する。動画がHTML等へredirectされた場合は公式画像へfallbackする。どちらも利用不能なら候補を失敗扱いにする。
+- dry-runはmedia選択まで本番と同じ経路を通し、Xクライアントを呼ばない。実行時のXアダプターはGETでもredirect・形式・サイズを再検証してからmedia uploadし、media IDを親投稿だけへ添付する。返信にはmediaを付けない。
 
 ## X API・投稿履歴統合（Step 6E）
 

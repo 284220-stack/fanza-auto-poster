@@ -4,7 +4,7 @@ import { parseScheduledPostRunArguments, scheduledPostRunExitCode } from './sche
 import type { CandidateSelectionResult, PostCandidate } from './post-candidate-selection.js';
 
 const client = { createPost: async () => ({ postId: 'parent', textLength: 1, createdAt: 'now' }), createReply: async () => ({ postId: 'reply', textLength: 1, createdAt: 'now' }) };
-const makeCandidate = (productId: number, category: PostCandidate['category'] = 'sale'): PostCandidate => ({ productId, category, title: '30%OFF Sample title', actressNames: [], affiliateUrl: 'https://example.invalid/item', selectionReasons: [], priorityScore: 1 });
+const makeCandidate = (productId: number, category: PostCandidate['category'] = 'sale'): PostCandidate => ({ productId, category, title: '30%OFF Sample title', actressNames: [], affiliateUrl: 'https://example.invalid/item', thumbnailUrl: 'https://pics.dmm.co.jp/image.jpg', selectionReasons: [], priorityScore: 1 });
 const selection = (selected: PostCandidate[], warnings: string[] = []): CandidateSelectionResult => ({ saleCandidates: selected.filter((item) => item.category === 'sale'), actressCandidates: selected.filter((item) => item.category === 'actress'), favoriteSaleCandidates: selected.filter((item) => item.category === 'favorite_sale'), selected, excludedCount: 0, warnings, generatedAt: 'now' });
 
 const inputs: Array<{ productId: number; dryRun?: boolean }> = [];
@@ -17,7 +17,8 @@ const orchestrator = { run: async (input: { productId: number; dryRun?: boolean 
 } } as never;
 
 const candidates = [makeCandidate(1), makeCandidate(2, 'actress'), makeCandidate(3), makeCandidate(4), makeCandidate(5, 'favorite_sale'), makeCandidate(1)];
-const service = new ScheduledPostRunService(async () => selection(candidates, ['category_shortage:actress']), orchestrator);
+const media = { resolve: async () => ({ media: { url: 'https://pics.dmm.co.jp/image.jpg', kind: 'image' as const }, warnings: [] }) };
+const service = new ScheduledPostRunService(async () => selection(candidates, ['category_shortage:actress']), orchestrator, media);
 const preview = await service.run({ client });
 assert.equal(preview.mode, 'preview');
 assert.equal(preview.selectedCount, 5);
@@ -35,7 +36,7 @@ assert.equal(execute.successCount, 2);
 assert.deepEqual(inputs.slice(-2).map((input) => input.dryRun), [undefined, undefined]);
 
 let release!: () => void;
-const lockedService = new ScheduledPostRunService(() => new Promise((resolve) => { release = () => resolve(selection([])); }), orchestrator);
+const lockedService = new ScheduledPostRunService(() => new Promise((resolve) => { release = () => resolve(selection([])); }), orchestrator, media);
 const firstRun = lockedService.run({ client });
 const overlapping = await lockedService.run({ client });
 assert.equal(overlapping.alreadyRunning, true);
@@ -47,7 +48,7 @@ let failed = false;
 const recoveryService = new ScheduledPostRunService(async () => {
   if (!failed) { failed = true; throw new Error('selector failed'); }
   return selection([]);
-}, orchestrator);
+}, orchestrator, media);
 const failedRun = await recoveryService.run({ client });
 assert.ok(failedRun.warnings.includes('scheduled_run_failed'));
 const recovered = await recoveryService.run({ client });

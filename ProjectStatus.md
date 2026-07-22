@@ -1,5 +1,14 @@
 # Project Status
 
+## Step 11D: 親投稿media添付と画像fallback（完了、2026-07-23）
+
+- 投稿候補SQL・Mapperへ`thumbnailUrl`を追加し、`PostMediaResolver`がサンプル動画を優先、公式サムネイル画像をfallbackとして選ぶようにした。HTTPSかつFANZA/DMM公式配下だけを許可し、redirect先、HTTP状態、Content-Type、Content-Lengthを検証する。動画はMP4/MOV・50MB以下、画像はJPEG/PNG/WebP/GIF・5MB以下で、どちらも不適格なら候補を失敗扱いにする。
+- XアダプターへGET時の再検証・サイズ制限付きdownload、X media upload、親投稿へのmedia ID添付を追加した。返信は従来どおりアフィリエイトURLだけでmediaなし。dry-runは同じmedia選択経路を通るがXクライアント、media upload、投稿履歴更新を行わない。
+- production読み取り確認: available商品39件中、sample videoは`www.dmm.co.jp` 37件・欠損2件、thumbnailは`pics.dmm.co.jp` 39件。実測したsample URLは`www.dmm.co.jp`→`special.dmm.co.jp`→`special.fanza.jp`へredirect後HTMLであり動画として拒否した。thumbnailはHTTP 200、`image/jpeg`、178,931 bytesで利用可能だった。URL全文・商品名は出力していない。
+- Railway deployment `57aeaeb1-7269-4956-b1ba-80126abc9256`はSUCCESS。Dashboard previewはHTTP 200、selected=2、previewed=2、blocked=0、failed=0、invalidInput=0、2件とも`mediaType=image`、`sample_video_unavailable`各1件で安全に画像fallbackした。post_historyは0→0、実X投稿0。
+- media URL・redirect・形式・サイズ・動画優先・画像fallback・全media不能、download上限、X upload→親投稿media ID、返信mediaなし、dry-run非送信、2件連続previewをテストした。ローカルCompletion Gateは全件成功。DB変更・migrationなし、`DRY_RUN=true`、投稿Scheduler未有効、実X投稿なし。
+- 残課題: X API権限と実media uploadは実投稿承認後に1件だけ確認する。現データのsample動画URLはmedia実体ではないため、運用上は画像fallbackが正常経路である。
+
 ## Step 11C: お気に入り同期とmetadata補完の統合（完了、2026-07-23）
 
 - `FavoriteSyncService`へ`FavoriteProductImportService`を接続した。同期APIは最大20件に制限し、既存商品はそのまま照合、未知content_idは`FavoriteProductProvider`で公式metadataをcheck-only補完する。check-onlyは商品・favorites・女優関連を変更せず、保存候補、metadata不能、取得失敗、VR除外、商品保存予定、お気に入り置換予定を件数だけで返す。

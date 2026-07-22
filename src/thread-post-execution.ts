@@ -1,10 +1,11 @@
 import { generateReplyTemplate } from './reply-template.js';
+import type { PostMedia } from './post-media.js';
 
 export type XPostClient = {
-  createPost(text: string): Promise<{ postId: string; textLength: number; createdAt: string }>;
+  createPost(text: string, media?: PostMedia): Promise<{ postId: string; textLength: number; createdAt: string }>;
   createReply(text: string, replyToPostId: string): Promise<{ postId: string; textLength: number; createdAt: string }>;
 };
-export type ThreadPostInput = { parentPostText: string; affiliateUrl?: string; productId: string; dryRun?: boolean; client: XPostClient; maxLength?: number };
+export type ThreadPostInput = { parentPostText: string; affiliateUrl?: string; productId: string; media?: PostMedia; dryRun?: boolean; client: XPostClient; maxLength?: number };
 export type ThreadPostResult = { status: 'success' | 'partial_success' | 'failed' | 'dry_run'; parentPostId?: string; replyPostId?: string; parentPosted: boolean; replyPosted: boolean; startedAt: string; completedAt: string; warnings: string[]; errors: string[]; replyText?: string };
 
 export class ThreadPostExecutionService {
@@ -21,7 +22,7 @@ export class ThreadPostExecutionService {
     this.running = true;
     try {
       let parent;
-      try { parent = await input.client.createPost(input.parentPostText); } catch { return complete({ status: 'failed', parentPosted: false, replyPosted: false, warnings: [], errors: ['parent_post_failed'] }); }
+      try { parent = await input.client.createPost(input.parentPostText, input.media); } catch { return complete({ status: 'failed', parentPosted: false, replyPosted: false, warnings: [], errors: ['parent_post_failed'] }); }
       try {
         const reply = await input.client.createReply(template.reply.text, parent.postId);
         return complete({ status: 'success', parentPostId: parent.postId, replyPostId: reply.postId, parentPosted: true, replyPosted: true, warnings: [], errors: [] });
