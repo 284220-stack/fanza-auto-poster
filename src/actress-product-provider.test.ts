@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { ActressProductProvider, ProductMetadataProvider, type DmmHttpClient } from './actress-product-provider.js';
+const actress = { id: 1, name: '正式名', aliases: ['別名'], enabled: true, priority: 1, targetNewReleases: true, targetSales: false, minimumPostIntervalHours: 0, weeklyPostLimit: 1, createdAt: '', updatedAt: '' };
+const item = (id: string, names: string[]) => ({ content_id: id, title: 'title', URL: 'https://example.test/product', affiliateURL: 'https://example.test/affiliate', date: '2026-01-01', iteminfo: { actress: names.map((name) => ({ name })) } });
+const calls: string[] = [];
+const http: DmmHttpClient = { async get(url) { calls.push(url); const id = new URL(url).searchParams.get('cid'); if (id === 'one') return { status: 200, json: async () => ({ result: { items: [item('one', ['正式名'])] } }) }; if (id === 'two') return { status: 200, json: async () => ({ result: { items: [item('two', ['別人'])] } }) }; return { status: 200, json: async () => ({ result: { items: [item('one', ['正式名']), item('one', ['正式名']), item('two', ['別人'])] } }) }; } };
+const metadata = new ProductMetadataProvider(http, { DMM_API_ID: 'x', DMM_AFFILIATE_ID: 'y' });
+const result = await new ActressProductProvider([actress, { ...actress, id: 2, enabled: false }, { ...actress, id: 3, targetNewReleases: false }], http, metadata, { DMM_API_ID: 'x', DMM_AFFILIATE_ID: 'y' }).fetch();
+assert.equal(result.registeredActressCount, 1); assert.equal(result.searchedActressCount, 2); assert.equal(result.uniqueProductCount, 1); assert.equal(result.items[0]?.externalProductId, 'one'); assert.ok(result.unmatchedCount >= 1); assert.equal(calls.filter((url) => new URL(url).searchParams.get('cid') === 'one').length, 1);
+console.log('actress product provider: ok');
