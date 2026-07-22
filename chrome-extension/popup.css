@@ -1,0 +1,115 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #202124;
+  background: #fff;
+}
+
+body {
+  width: 360px;
+  margin: 0;
+}
+
+main {
+  padding: 16px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 19px;
+}
+
+.notice,
+.hint,
+.status {
+  line-height: 1.5;
+}
+
+.notice,
+.hint {
+  color: #5f6368;
+  font-size: 12px;
+}
+
+label {
+  display: block;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+input,
+button {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 8px;
+  border-radius: 6px;
+  font: inherit;
+}
+
+input {
+  border: 1px solid #bdc1c6;
+  padding: 9px 10px;
+}
+
+button {
+  border: 0;
+  padding: 10px 12px;
+  color: #fff;
+  background: #b00058;
+  cursor: pointer;
+}
+
+button.secondary {
+  color: #b00058;
+  background: #f7e8ef;
+}
+
+button:disabled {
+  color: #80868b;
+  background: #e8eaed;
+  cursor: default;
+}
+
+.status {
+  min-height: 21px;
+  margin: 14px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status.error {
+  color: #b3261e;
+}
+
+.status.success {
+  color: #137333;
+}
+
+.results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin: 8px 0 0;
+}
+
+.results[hidden] {
+  display: none;
+}
+
+.results div {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #e8eaed;
+  padding: 6px 0;
+}
+
+.results dt,
+.results dd {
+  margin: 0;
+  font-size: 12px;
+}
+
+.results dd {
+  font-weight: 700;
+}

@@ -4,7 +4,7 @@ import { persistSaleProducts, type ProductWriter } from './sale-product-persiste
 import type { ProductMetadataProvider } from './actress-product-provider.js';
 
 export class FavoriteProductImportService implements FavoriteProductImporter {
-  constructor(private readonly metadata: Pick<ProductMetadataProvider, 'fetch'>, private readonly writer: ProductWriter) {}
+  constructor(private readonly metadata: Pick<ProductMetadataProvider, 'lookup'>, private readonly writer: ProductWriter) {}
 
   async preview(urls: readonly string[]): Promise<FavoriteImportPreview> {
     const result = await new FavoriteProductProvider(urls, this.metadata).fetch({ limit: 20, page: 1 });
@@ -12,6 +12,9 @@ export class FavoriteProductImportService implements FavoriteProductImporter {
       items: result.items,
       saveCandidateCount: result.saveCandidateCount ?? result.items.length,
       metadataUnavailableCount: result.metadataUnavailableCount,
+      apiNotListedCount: result.apiNotListedCount,
+      metadataIdMismatchCount: result.metadataIdMismatchCount,
+      invalidMetadataCount: result.invalidMetadataCount,
       failedCount: result.failedCount,
       vrExcludedCount: result.vrExcludedCount
     };

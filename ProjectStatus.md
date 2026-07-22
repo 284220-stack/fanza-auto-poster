@@ -1,5 +1,29 @@
 # Project Status
 
+## Step 11F: 手動Chromeお気に入り同期拡張（完了、2026-07-23）
+
+- 承認された安全境界に従い、`chrome-extension`へManifest V3のpopup型MVPを実装した。常駐content script、background worker、alarm、Cookie・storage権限はなく、利用者がボタンを押した時だけ対象tabへ抽出関数を注入する。
+- 対象はHTTPSのFANZA/DMM公式hostかつpathnameに明確な`favorite`または`bookmark` segmentを持つページだけである。公式商品URLをcontent_idで重複除去して最大20件に制限し、安全な標準URLへ正規化する。明確なタイトル先頭VR表記はローカル除外し、同期APIのmetadata補完でも既存の共通VR判定を通す。
+- popupは抽出・重複・VR除外・上限超過と同期結果の件数だけを表示する。FANZAのCookie、ID、パスワード、localStorage、ページHTML、商品名を送信しない。送信bodyは`urls`と`persist`だけである。
+- Dashboard originは保存せず、Railwayの`*.up.railway.app` HTTPSまたはローカル確認用localhost/127.0.0.1だけを許可する。Basic認証値は埋め込み・読取りをせず、同じブラウザーで事前認証済みのoriginを利用する。401、対象外ページ、通信・検証失敗では安全に停止する。
+- 初回送信は常にcheck-onlyで、安全性件数が全て成功した場合だけ同一popup内のpersistボタンを有効にする。persistは確認dialog後の明示操作一回だけで、popupを閉じると確認状態を破棄する。既存の`FavoriteProductProvider`、metadata補完、全件成功時だけfavoritesを置換するServiceを再利用し、DB・migration・投稿ルールは変更していない。
+- テストは対象ページ制限、公式URL/content_id、最大20件、重複、明確なVR表記、無関係な`VR`文字列、URL正規化、送信body限定、任意origin拒否、認証値非埋込み、Cookie/storage/background/定期処理不使用、401安全停止、check-only→明示persist、favorite_saleのセール掲載必須・VR除外を追加した。`FavoriteProductProvider`のmetadata補完・価格NULL・VR除外・個別失敗テストも全件成功した。
+- ローカルCompletion Gateは`npm run check`、`npm test`、`npm run build`、`git diff --check`が全て成功。Chrome本体は導入済みだが、認証済みFANZAページでの実行は「利用者がボタンを押した時だけ」という承認条件のためCodexは自動操作していない。
+- Railway production deployment `a0112307-1e64-465c-91b7-04f6deacad9c`はSUCCESS。Dashboard商品API、既存非VR商品1件の同期check-only、投稿previewは全てHTTP 200だった。商品39件、VR 0件、favorites 0件。check-onlyはreceived=1、valid=1、invalid=0、matched=1、unmatched=0、metadataUnavailable=0、metadataFailed=0、vrExcluded=0、failedProduct=0だった。
+- production previewはselected=2、previewed=2、blocked=0、failed=0、invalidInput=0、カテゴリはactress 2、favorite_sale 0。正規なセール掲載集合がないためfavorite_sale 0件は正常であり、価格差や条件緩和を使っていない。
+- 運用者による初回実ページcheck-onlyは抽出20、重複34、VR除外0、上限超過55、既存0、保存候補9、不正0、metadata取得不能11、失敗0で、persistは安全条件未達のため無効だった。persistとfavorites変更は行っていない。旧集計は同期可能と誤認した一意商品75（抽出20＋上限超過55）と追加リンク34、合計109候補リンクとして算術上は整合していた。
+- 取得不能の根本設計問題は、拡張がDMM/FANZA公式配下の全`content/detail`リンクをvideoa商品とみなし、元host/path/floor形式を失って現行AV URLへ変換していたこと、metadata側がItemList先頭1件だけを検査し、API未掲載・ID不一致・必須metadata不足・VRを全て`metadataUnavailable`へ潰していたことである。このため初回11件が他商品種別かAPI未掲載かを安全に切り分けられない状態だった。
+- 最小修正で、拡張とAPIの同期対象を現行`video.dmm.co.jp/av/content`と旧`digital/videoa/.../detail`へ限定した。他floorはAVへ推測変換せず、現行AV・旧videoa・未対応商品種別・ID不正を件数だけで表示する。同一IDの複数形式は重複除去し、上限超過は対応形式の非VR一意商品だけから算出する。DOMの相対hrefはブラウザーが解決した絶対`anchor.href`で検証する。
+- `ProductMetadataProvider.lookup`はFavorite経路だけ最大20件のcid応答内から要求IDを厳密検索し、`api_not_listed`、`id_mismatch`、`invalid_metadata`、`vr_excluded`を分離した。女優同期の既存`fetch`はhits=1を維持する。同期APIとpopupはURL・content_id・商品名を返さず、理由別件数だけを表示する。取得不能・VR・不正・失敗が1件でもあれば全件persist禁止を維持する。
+- 追加テストは他floor拒否、クエリ・末尾スラッシュ、ブラウザー解決済み相対href、同一商品の現行／旧形式重複、上限算出、API 0件、ID不一致、要求IDが応答2件目にある場合、必須metadata不足、VR分類、理由件数のAPI伝播を含む。修正後Completion Gateは全件成功した。
+- Railway production deployment `c91f4677-1d04-4fd6-864f-a43d720b9a4b`はSUCCESS。既存非VR商品check-only、未対応floor URLの拒否check-only、商品API、previewは全てHTTP 200。商品39、VR 0、favorites 0、既存商品は全reason 0、未対応floorはvalid 0・invalid 1・metadata取得0だった。previewはselected 2、failed 0、blocked 0、`DRY_RUN=true`でDB変更・実投稿なし。
+- 運用者による修正後の同一ページ操作は抽出20、重複19、上限超過39、現行AV形式78、旧videoa形式0、未対応商品種別16、VR 0、保存候補19、不正0、取得不能0、API未掲載0、ID不一致0、metadata不完全0、失敗0だった。全安全条件成功後に明示persistを一回だけ実行し、再実行していない。persist結果はお気に入り20、保存後既存商品20、商品新規作成19、失敗0だった。
+- production読み取り確認はproducts 58、favorites 20、distinct favorite product 20、重複favorite 0、重複content_id 0、孤児参照0、非available 0、必須商品情報不正0、favorite内VR 0。同期時刻近傍で新規作成されたfavorite商品は19件で、初回既存1件＋新規19件と一致する。Favorite補完は設計どおり`product_actresses`を変更せず、favorite商品で同関連を持つものは0件だった。
+- 正規のセール掲載集合は未登録で、favoriteかつ`is_sale=true`は0件のためfavorite_sale候補0件は正常である。production dry-run previewはHTTP 200、selected=2、previewed=2、カテゴリactress 2、favorite_sale 0、blocked=0、failed=0、invalidInput=0。post_history 0、pending reply 0、X投稿ID 0だった。
+- 最終安全状態: `DRY_RUN=true`、Railway productionはOnline、deployment `c91f4677-1d04-4fd6-864f-a43d720b9a4b` SUCCESS、直近error logなし、投稿Scheduler resourceなし、実X投稿・実media uploadなし。migration、追加persist、セール取得、Cookie読取りは行っていない。
+- 次の再開地点: Chromeお気に入り同期は完了。正規セール掲載集合が承認・実装されるまでfavorite_sale 0件を維持する。実X投稿・実media upload、Scheduler作成・有効化、セール一覧HTML・年齢認証Cookie・robots.txt／利用規約に関係する取得は引き続き個別承認待ちである。
+- 承認待ち継続: セール一覧HTML自動取得、年齢認証Cookie、robots.txt・利用規約に関係する処理、実X投稿・実media upload、Scheduler作成・有効化。これらは今回実施していない。
+
 ## Step 11E: 運用準備・障害対応・全体回帰（完了、2026-07-23）
 
 - 旧Yahooメール中心で現状と逆だったREADMEを現行のPostgreSQL・女優起点・お気に入り同期・dry-run投稿構成へ更新した。`docs/Operations.md`と`docs/IncidentResponse.md`を追加し、日次確認、同期、preview、実投稿前、Scheduler前、502、同期失敗、media失敗、partial success、限定DBメンテナンスの手順を整理した。
