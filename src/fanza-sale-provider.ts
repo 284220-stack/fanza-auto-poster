@@ -1,5 +1,6 @@
 import { normalizeProviderResult, type ProductProvider, type ProviderItem, type ProviderQuery, type ProviderResult } from './providers.js';
 import { parseOptionalDmmPrice } from './dmm-price.js';
+import { isVrProduct } from './vr-product.js';
 
 export type SaleWarningCode =
   | 'campaign_missing'
@@ -42,7 +43,8 @@ export class FanzaSaleProvider implements ProductProvider {
       const items: ProviderItem[] = [];
       for (const raw of body.result.items) {
         const converted = convert(raw, fetchedAt);
-        if ('item' in converted) items.push(converted.item);
+        if ('item' in converted && !isVrProduct(converted.item)) items.push(converted.item);
+        else if ('item' in converted) warnings.push('vr_excluded');
         else warnings.push(...converted.warnings);
       }
       const count = body.result.result_count ?? items.length;

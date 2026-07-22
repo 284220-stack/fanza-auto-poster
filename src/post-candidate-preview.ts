@@ -4,6 +4,7 @@ import { generatePostTemplates } from './post-template-generation.js';
 import type { CandidateSelectionResult, PostCandidate } from './post-candidate-selection.js';
 import type { PostExecutionOrchestrator } from './post-execution-orchestrator.js';
 import type { XPostClient } from './thread-post-execution.js';
+import { isVrTitle } from './vr-product.js';
 
 export type PostCandidatePreviewInput = { limits?: unknown; preferredTemplateStyle?: 'sale_first' | 'actress_first' | 'campaign_first' | 'balanced'; client: XPostClient };
 export type PostCandidatePreviewItem = { productId: number; category: string; action: string; status: string; selectedOrder: number; parentPostCharacterCount: number; replyCharacterCount: number; killerMessageStyle?: string; warnings: string[]; errors: string[] };
@@ -16,6 +17,7 @@ export class PostCandidatePreviewService {
     return { requestedCount: 5, selectedCount: candidates.length, previewedCount: items.length, blockedCount: items.filter((item) => item.status === 'blocked').length, retryReplyCount: items.filter((item) => item.action === 'retry_reply').length, failedCount: items.filter((item) => item.status === 'failed').length, items, warnings: selection.warnings, generatedAt: new Date().toISOString() };
   }
   private async previewOne(candidate: PostCandidate, selectedOrder: number, input: PostCandidatePreviewInput): Promise<PostCandidatePreviewItem> {
+    if (isVrTitle(candidate.title)) return { productId: candidate.productId, category: candidate.category, action: 'blocked', status: 'blocked', selectedOrder, parentPostCharacterCount: 0, replyCharacterCount: 0, warnings: ['vr_excluded'], errors: [] };
     try {
       const analysis = analyzeProductTitle(candidate.title); const killer = generateKillerMessages({ analysis, actressNames: candidate.actressNames }).primary;
       const post = generatePostTemplates({ titleAnalysis: analysis, killerMessage: killer, actressNames: candidate.actressNames, preferredStyle: input.preferredTemplateStyle }).primary;

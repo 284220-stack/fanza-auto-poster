@@ -5,6 +5,7 @@ import type { CandidateCategory, CandidateSelectionResult, PostCandidate } from 
 import { PostCandidatePreviewService } from './post-candidate-preview.js';
 import type { PostExecutionAction, PostExecutionOrchestrator, PostExecutionStatus } from './post-execution-orchestrator.js';
 import type { XPostClient } from './thread-post-execution.js';
+import { isVrTitle } from './vr-product.js';
 
 export type ScheduledPostRunMode = 'preview' | 'execute';
 export type ScheduledPostRunOptions = { mode?: ScheduledPostRunMode; limit?: number; client: XPostClient };
@@ -63,6 +64,7 @@ export class ScheduledPostRunService {
   }
 
   private async runOne(candidate: PostCandidate, selectedOrder: number, mode: ScheduledPostRunMode, client: XPostClient): Promise<ScheduledPostRunItem> {
+    if (isVrTitle(candidate.title)) return { productId: candidate.productId, category: candidate.category, action: 'blocked', status: 'blocked', selectedOrder, warnings: ['vr_excluded'], errors: [] };
     try {
       const analysis = analyzeProductTitle(candidate.title);
       const killer = generateKillerMessages({ analysis, actressNames: candidate.actressNames }).primary;

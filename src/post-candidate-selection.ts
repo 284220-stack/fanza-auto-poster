@@ -1,3 +1,5 @@
+import { isVrTitle } from './vr-product.js';
+
 export type CandidateCategory = 'sale' | 'actress' | 'favorite_sale';
 export type CandidateSource = { productId: number; title: string; affiliateUrl: string | null; sampleVideoUrl?: string | null; releaseDate?: string | null; isSale: boolean; status: string; favorite: boolean; actressNames: string[]; enabledActressNames: string[]; enabledNewReleaseActressNames: string[]; actressPriority: number; hasRecentParentPost: boolean; hasPendingReply: boolean; discountPercent?: number; campaignName?: string };
 export type PostCandidate = { productId: number; category: CandidateCategory; title: string; actressNames: string[]; affiliateUrl: string; sampleVideoUrl?: string; releaseDate?: string; discountPercent?: number; campaignName?: string; selectionReasons: string[]; priorityScore: number };
@@ -22,7 +24,7 @@ export class PostCandidateSelectionService {
     return { saleCandidates, actressCandidates, favoriteSaleCandidates, selected: [...saleCandidates, ...actressCandidates, ...favoriteSaleCandidates], excludedCount: all.length - eligible.length, warnings, generatedAt: new Date().toISOString() };
   }
 }
-function isEligible(v: CandidateSource) { return v.status === 'available' && Boolean(v.affiliateUrl) && Boolean(v.title.trim()) && !v.hasRecentParentPost && !v.hasPendingReply && (v.actressNames.length === 0 || v.enabledActressNames.length > 0); }
+function isEligible(v: CandidateSource) { return !isVrTitle(v.title) && v.status === 'available' && Boolean(v.affiliateUrl) && Boolean(v.title.trim()) && !v.hasRecentParentPost && !v.hasPendingReply && (v.actressNames.length === 0 || v.enabledActressNames.length > 0); }
 function compare(a: CandidateSource, b: CandidateSource) { return score(b) - score(a) || (b.releaseDate ?? '').localeCompare(a.releaseDate ?? '') || a.productId - b.productId; }
 function score(v: CandidateSource) { return v.actressPriority * 100 + (v.discountPercent ? 20 : 0) + (v.campaignName ? 10 : 0) + (v.sampleVideoUrl ? 5 : 0); }
 function candidate(v: CandidateSource, category: CandidateCategory): PostCandidate { return { productId: v.productId, category, title: v.title, actressNames: v.enabledActressNames, affiliateUrl: v.affiliateUrl!, sampleVideoUrl: v.sampleVideoUrl ?? undefined, releaseDate: v.releaseDate ?? undefined, discountPercent: v.discountPercent, campaignName: v.campaignName, selectionReasons: [category, ...(v.discountPercent ? ['discount'] : []), ...(v.campaignName ? ['campaign'] : []), ...(v.sampleVideoUrl ? ['sample_video'] : [])], priorityScore: score(v) }; }
