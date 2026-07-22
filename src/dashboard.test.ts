@@ -59,6 +59,19 @@ try {
   assert.equal(invalidFavoriteSync.status, 400);
   assert.deepEqual(await invalidFavoriteSync.json(), { message: 'リクエスト本文が不正です。' });
 
+  const invalidSaleSync = await fetch(`http://127.0.0.1:${port}/api/sales/manual-sync`, {
+    method: 'POST',
+    headers: { authorization: credentials, 'content-type': 'application/json' },
+    body: '{'
+  });
+  assert.equal(invalidSaleSync.status, 400);
+  assert.deepEqual(await invalidSaleSync.json(), { message: 'リクエスト本文が不正です。' });
+
+  const legacySaleSync = await fetch(`http://127.0.0.1:${port}/api/sync/sales`, {
+    method: 'POST', headers: { authorization: credentials }
+  });
+  assert.equal(legacySaleSync.status, 409);
+
   const unknownApi = await request(port, '/api/not-found', credentials);
   assert.equal(unknownApi.status, 404);
 

@@ -4,6 +4,8 @@
   const MAX_URLS = 20;
   const FAVORITE_PAGE_HOSTS = new Set(['www.dmm.co.jp', 'video.dmm.co.jp', 'www.fanza.com']);
   const FAVORITE_PATH_SEGMENTS = new Set(['favorite', 'favorites', 'bookmark', 'bookmarks']);
+  const SALE_PAGE_HOST = 'video.dmm.co.jp';
+  const SALE_PAGE_PATH = '/av/list/';
 
   class SafeSyncError extends Error {
     constructor(code, status) {
@@ -72,6 +74,14 @@
     return url.pathname.toLowerCase().split('/').filter(Boolean).some((segment) => FAVORITE_PATH_SEGMENTS.has(segment));
   }
 
+  function isAllowedSalePage(value) {
+    const url = parseUrl(value);
+    return Boolean(url
+      && url.protocol === 'https:'
+      && url.hostname.toLowerCase() === SALE_PAGE_HOST
+      && `${url.pathname.replace(/\/+$/, '')}/` === SALE_PAGE_PATH);
+  }
+
   function isExplicitVrLabel(value) {
     const normalized = String(value || '').normalize('NFKC').trim().toLowerCase();
     return /^(?:【\s*vr\s*】|\[\s*vr\s*\])/.test(normalized);
@@ -93,6 +103,15 @@
 
   function extractFavoriteUrls(documentValue, pageUrl, limit = MAX_URLS) {
     if (!isAllowedFavoritesPage(pageUrl)) throw new SafeSyncError('not_favorite_page');
+    return extractProductUrls(documentValue, limit);
+  }
+
+  function extractSaleUrls(documentValue, pageUrl, limit = MAX_URLS) {
+    if (!isAllowedSalePage(pageUrl)) throw new SafeSyncError('not_sale_page');
+    return extractProductUrls(documentValue, limit);
+  }
+
+  function extractProductUrls(documentValue, limit) {
     const boundedLimit = Math.min(MAX_URLS, Math.max(1, Number.isInteger(limit) ? limit : MAX_URLS));
     const products = new Map();
     let scannedLinkCount = 0;
@@ -172,6 +191,16 @@
     return { urls: [...urls], persist: persist === true };
   }
 
+  function createSaleSyncPayload(urls, persist, snapshotComplete, expectedHash) {
+    const payload = createSyncPayload(urls, persist);
+    payload.snapshotComplete = snapshotComplete === true;
+    if (persist === true) {
+      if (typeof expectedHash !== 'string' || !/^[a-f0-9]{64}$/.test(expectedHash)) throw new SafeSyncError('invalid_snapshot_hash');
+      payload.expectedHash = expectedHash;
+    }
+    return payload;
+  }
+
   function canPersist(result, expectedCount) {
     if (!result || result.checkOnly !== true || result.receivedCount !== expectedCount || result.uniqueProductCount < 1) return false;
     const zeroFields = ['invalidCount', 'metadataUnavailableCount', 'metadataFailedCount', 'vrExcludedCount', 'failedProductCount'];
@@ -179,12 +208,30 @@
     return result.matchedProductCount + result.saveCandidateCount === result.uniqueProductCount;
   }
 
+  function canPersistSale(result, expectedCount, snapshotComplete) {
+    if (!result || result.checkOnly !== true || result.schemaReady !== true || snapshotComplete !== true) return false;
+    if (result.snapshotComplete !== true || result.receivedCount !== expectedCount || result.uniqueProductCount !== expectedCount) return false;
+    if (result.metadataAvailableCount !== expectedCount || typeof result.snapshotHash !== 'string' || !/^[a-f0-9]{64}$/.test(result.snapshotHash)) return false;
+    const zeroFields = ['invalidCount', 'apiNotListedCount', 'metadataIdMismatchCount', 'invalidMetadataCount', 'vrExcludedCount', 'failedCount'];
+    return zeroFields.every((key) => result[key] === 0);
+  }
+
   async function sendFavoriteSync(fetchValue, originValue, urls, persist, signal) {
     const origin = normalizeDashboardOrigin(originValue);
     const body = createSyncPayload(urls, persist);
+    return sendSync(fetchValue, origin, '/api/favorites/sync', body, persist, signal);
+  }
+
+  async function sendManualSaleSync(fetchValue, originValue, urls, persist, snapshotComplete, expectedHash, signal) {
+    const origin = normalizeDashboardOrigin(originValue);
+    const body = createSaleSyncPayload(urls, persist, snapshotComplete, expectedHash);
+    return sendSync(fetchValue, origin, '/api/sales/manual-sync', body, persist, signal);
+  }
+
+  async function sendSync(fetchValue, origin, pathname, body, persist, signal) {
     let response;
     try {
-      response = await fetchValue(`${origin}/api/favorites/sync`, {
+      response = await fetchValue(`${origin}${pathname}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -215,13 +262,18 @@
     MAX_URLS,
     SafeSyncError,
     canPersist,
+    canPersistSale,
+    createSaleSyncPayload,
     createSyncPayload,
     classifyProductLink,
     extractContentId,
     extractFavoriteUrls,
+    extractSaleUrls,
     isAllowedFavoritesPage,
+    isAllowedSalePage,
     isExplicitVrLabel,
     normalizeDashboardOrigin,
-    sendFavoriteSync
+    sendFavoriteSync,
+    sendManualSaleSync
   });
 })(globalThis);

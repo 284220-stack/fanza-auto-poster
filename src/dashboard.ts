@@ -11,8 +11,6 @@ import { startWorker } from './worker.js';
 import { ActressRepository, ActressService, type Queryable } from './actresses.js';
 import { handleActressApiRequest } from './actress-api.js';
 import { getDatabasePool } from './db/pool.js';
-import { handleSaleSyncApiRequest } from './sale-sync-api.js';
-import { getSaleSyncExecutionService } from './sale-sync-execution.js';
 import { PostHistoryRepository } from './post-history.js';
 import { PostEligibilityService } from './post-eligibility.js';
 import { ReplyRetryService } from './reply-retry.js';
@@ -30,6 +28,9 @@ import { handleFavoriteSyncApiRequest } from './favorite-sync-api.js';
 import { FavoriteProductImportService } from './favorite-product-import.js';
 import { ProductMetadataProvider, type DmmHttpClient } from './actress-product-provider.js';
 import { PostMediaResolver } from './post-media.js';
+import { handleManualSaleSyncApiRequest } from './manual-sale-sync-api.js';
+import { ManualSaleSyncService } from './manual-sale-sync.js';
+import { ProductSourceRepository, type TransactionPool } from './product-sources.js';
 
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 const dataDir = process.env.APP_DATA_DIR ?? fileURLToPath(new URL('../data/', import.meta.url));
@@ -173,8 +174,21 @@ export function createDashboardServer() {
       if (result) { sendJson(response, result.status, result.body); return; }
     }
     if (url.pathname === '/api/products' && request.method === 'GET') {
-      const products = await new ProductRepository(getDatabasePool() as unknown as Queryable).list();
-      sendJson(response, 200, { products: products.slice(0, 100) });
+      const db = getDatabasePool();
+      const products = await new ProductRepository(db as unknown as Queryable).list();
+      const sourceRepository = new ProductSourceRepository(db as unknown as TransactionPool);
+      const sourceSchemaReady = await sourceRepository.schemaReady();
+      const summaries = new Map((sourceSchemaReady ? await sourceRepository.listSummaries() : []).map((summary) => [summary.productId, summary]));
+      sendJson(response, 200, {
+        sourceSchemaReady,
+        products: products.slice(0, 100).map((product) => ({
+          ...product,
+          sources: summaries.get(product.id)?.sources ?? [],
+          currentSale: summaries.get(product.id)?.currentSale ?? false,
+          firstSeenAt: summaries.get(product.id)?.firstSeenAt ?? product.createdAt,
+          lastSyncedAt: summaries.get(product.id)?.lastSeenAt ?? product.updatedAt
+        }))
+      });
       return;
     }
     if (url.pathname.startsWith('/api/favorites')) {
@@ -195,9 +209,25 @@ export function createDashboardServer() {
       );
       if (result) { sendJson(response, result.status, result.body); return; }
     }
+    if (url.pathname.startsWith('/api/sales/manual')) {
+      let body: Record<string, unknown> = {};
+      if (request.method === 'POST') {
+        try { body = await readJson(request); } catch { sendJson(response, 400, { message: 'リクエスト本文が不正です。' }); return; }
+      }
+      const result = await handleManualSaleSyncApiRequest(
+        request.method,
+        url.pathname,
+        body,
+        () => {
+          const db = getDatabasePool() as unknown as TransactionPool;
+          const http: DmmHttpClient = { async get(target, signal) { const remote = await fetch(target, { signal }); return { status: remote.status, json: () => remote.json() }; } };
+          return new ManualSaleSyncService(new ProductSourceRepository(db), new ProductMetadataProvider(http));
+        }
+      );
+      if (result) { sendJson(response, result.status, result.body); return; }
+    }
     if (url.pathname === '/api/sync/sales') {
-      const result = await handleSaleSyncApiRequest(request.method, getSaleSyncExecutionService());
-      sendJson(response, result.status, result.body);
+      sendJson(response, 409, { message: '価格差による旧セール同期は停止されています。Chrome拡張の手動セール同期を使用してください。' });
       return;
     }
     if (url.pathname === '/api/posts/execute') {

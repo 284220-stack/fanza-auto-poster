@@ -62,6 +62,15 @@ FANZAの商品を取得・選定し、利用可能なサンプル動画付きの
 - 認証情報は環境変数等の安全な設定で扱い、コード、ログ、クライアントへ出力しない。
 - Chrome拡張へAPIキーやBasic認証値を埋め込まない。Dashboard originは実行時だけ利用者が指定し、保存しない。拡張はブラウザーで事前に認証済みのDashboard originへだけ同期要求を送り、401時は認証情報を収集せず停止する。
 
+## 手動セール掲載同期と取得経路
+
+- セール掲載の取得起点は、利用者がHTTPSの`https://video.dmm.co.jp/av/list/`上でChrome拡張のボタンを押す明示操作だけとする。サーバー巡回、background、定期実行、年齢認証・robots.txt回避、Cookie・localStorage・HTML全文の送信を禁止する。
+- 同期対象は明確なvideoa商品URLをcontent_id単位で重複除去した最大20件である。上限超過または不正リンクがある集合は完全スナップショットではないためpersistしない。
+- check-onlyで全content_idの公式metadata、affiliate URL、非VR、集合hash、取得経路schemaを確認する。persistは同じ集合hashが一致し、全件成功した場合だけ単一transactionで実行する。部分persistを禁止する。
+- ページ掲載そのものをセール根拠とし、価格不明を許容する。価格差、商品名、既存`is_sale`だけからセール掲載を推測しない。旧価格差同期のDashboard経路は停止する。
+- 同一商品は`product_sources`でactress・favorite・saleを独立に保持する。first/last seenとactiveを保持し、favorite_saleはactiveなfavoriteとsaleの交差から導出する。
+- favorite_saleを最大1件予約してから、同一商品を除外してsale最大2件、actress最大2件を選ぶ。合計は最大5件で、不足カテゴリを別カテゴリで補填しない。
+
 ## 対象外
 
 - Yahoo!メールIMAP監視、メール本文からの商品抽出、メールID重複防止、Yahoo!メール認証画面

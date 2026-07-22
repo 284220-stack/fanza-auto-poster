@@ -7,9 +7,15 @@ export type CandidateSelectionOptions = { saleLimit?: number; actressLimit?: num
 export type CandidateSelectionResult = { saleCandidates: PostCandidate[]; actressCandidates: PostCandidate[]; favoriteSaleCandidates: PostCandidate[]; selected: PostCandidate[]; excludedCount: number; warnings: string[]; generatedAt: string };
 export type PostCandidateRepository = { listSelectable(): Promise<CandidateSource[]> };
 export class DatabasePostCandidateRepository implements PostCandidateRepository {
-  constructor(private readonly db: { query<T>(sql: string): Promise<{ rows: T[] }> }) {}
+  constructor(private readonly db: { query<T>(sql: string, values?: readonly unknown[]): Promise<{ rows: T[] }> }) {}
   async listSelectable() {
-    return (await this.db.query<CandidateSource>(`SELECT p.id::int AS "productId", p.title, p.affiliate_url AS "affiliateUrl", p.sample_video_url AS "sampleVideoUrl", p.thumbnail_url AS "thumbnailUrl", p.release_date::text AS "releaseDate", p.is_sale AS "isSale", p.status, EXISTS(SELECT 1 FROM favorites f WHERE f.product_id=p.id) AS favorite, COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE a.id IS NOT NULL), '{}') AS "actressNames", COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE a.enabled), '{}') AS "enabledActressNames", COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE a.enabled AND a.target_new_releases), '{}') AS "enabledNewReleaseActressNames", COALESCE(MAX(a.priority) FILTER (WHERE a.enabled AND a.target_new_releases),0) AS "actressPriority", EXISTS(SELECT 1 FROM post_history h WHERE h.product_id=p.id AND h.post_type='parent' AND h.execution_status IN ('posted','pending_reply') AND h.posted_at >= current_timestamp - interval '30 days') AS "hasRecentParentPost", EXISTS(SELECT 1 FROM post_history h WHERE h.product_id=p.id AND h.post_type='parent' AND h.execution_status='pending_reply') AS "hasPendingReply" FROM products p LEFT JOIN product_actresses pa ON pa.product_id=p.id LEFT JOIN actresses a ON a.id=pa.actress_id GROUP BY p.id`)).rows;
+    const sourceSchemaReady = (await this.db.query<{ ready: boolean }>(
+      "SELECT to_regclass('public.product_sources') IS NOT NULL AS ready"
+    )).rows[0]?.ready ?? false;
+    const currentSale = sourceSchemaReady
+      ? "EXISTS(SELECT 1 FROM product_sources ps WHERE ps.product_id=p.id AND ps.source_type='sale' AND ps.active)"
+      : 'false';
+    return (await this.db.query<CandidateSource>(`SELECT p.id::int AS "productId", p.title, p.affiliate_url AS "affiliateUrl", p.sample_video_url AS "sampleVideoUrl", p.thumbnail_url AS "thumbnailUrl", p.release_date::text AS "releaseDate", ${currentSale} AS "isSale", p.status, EXISTS(SELECT 1 FROM favorites f WHERE f.product_id=p.id) AS favorite, COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE a.id IS NOT NULL), '{}') AS "actressNames", COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE a.enabled), '{}') AS "enabledActressNames", COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE a.enabled AND a.target_new_releases), '{}') AS "enabledNewReleaseActressNames", COALESCE(MAX(a.priority) FILTER (WHERE a.enabled AND a.target_new_releases),0) AS "actressPriority", EXISTS(SELECT 1 FROM post_history h WHERE h.product_id=p.id AND h.post_type='parent' AND h.execution_status IN ('posted','pending_reply') AND h.posted_at >= current_timestamp - interval '30 days') AS "hasRecentParentPost", EXISTS(SELECT 1 FROM post_history h WHERE h.product_id=p.id AND h.post_type='parent' AND h.execution_status='pending_reply') AS "hasPendingReply" FROM products p LEFT JOIN product_actresses pa ON pa.product_id=p.id LEFT JOIN actresses a ON a.id=pa.actress_id GROUP BY p.id`)).rows;
   }
 }
 export class PostCandidateSelectionService {
@@ -17,11 +23,11 @@ export class PostCandidateSelectionService {
   async select(options: CandidateSelectionOptions = {}): Promise<CandidateSelectionResult> {
     const all = await this.repository.listSelectable(); const eligible = all.filter(isEligible); const used = new Set<number>();
     const take = (category: CandidateCategory, values: CandidateSource[], limit: number) => values.filter((value) => !used.has(value.productId)).sort(compare).slice(0, limit).map((value) => { used.add(value.productId); return candidate(value, category); });
+    const favoriteSaleCandidates = take('favorite_sale', eligible.filter((v) => v.favorite && v.isSale), options.favoriteSaleLimit ?? 1);
     const saleCandidates = take('sale', eligible.filter((v) => v.isSale), options.saleLimit ?? 2);
     const actressCandidates = take('actress', eligible.filter((v) => v.enabledNewReleaseActressNames.length > 0), options.actressLimit ?? 2);
-    const favoriteSaleCandidates = take('favorite_sale', eligible.filter((v) => v.favorite && v.isSale), options.favoriteSaleLimit ?? 1);
     const warnings = ([['sale', saleCandidates, options.saleLimit ?? 2], ['actress', actressCandidates, options.actressLimit ?? 2], ['favorite_sale', favoriteSaleCandidates, options.favoriteSaleLimit ?? 1]] as const).filter(([, values, limit]) => values.length < limit).map(([category]) => `category_shortage:${category}`);
-    return { saleCandidates, actressCandidates, favoriteSaleCandidates, selected: [...saleCandidates, ...actressCandidates, ...favoriteSaleCandidates], excludedCount: all.length - eligible.length, warnings, generatedAt: new Date().toISOString() };
+    return { saleCandidates, actressCandidates, favoriteSaleCandidates, selected: [...favoriteSaleCandidates, ...saleCandidates, ...actressCandidates], excludedCount: all.length - eligible.length, warnings, generatedAt: new Date().toISOString() };
   }
 }
 function isEligible(v: CandidateSource) { return !isVrTitle(v.title) && v.status === 'available' && Boolean(v.affiliateUrl) && Boolean(v.title.trim()) && !v.hasRecentParentPost && !v.hasPendingReply && (v.actressNames.length === 0 || v.enabledActressNames.length > 0); }

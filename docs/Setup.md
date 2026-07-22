@@ -60,7 +60,9 @@ npm run db:migrate:create -- <migration-name>
 
 Railway等でTLSが必要な場合は `DATABASE_SSL=true` を設定する。証明書検証は既定で有効であり、例外的に必要な場合だけ `DATABASE_SSL_REJECT_UNAUTHORIZED=false` を設定する。
 
-## セール同期の手動実行（Step 5A）
+## 旧価格差セール同期（廃止済み・実行禁止）
+
+> 以下のStep 5A〜5E記録は履歴参照用です。`sync:sales`と`sync:sales:check` npm scriptは削除済みで、価格差によるセール判定・persistには使用しません。現行手順は[Operations](Operations.md)の「手動セール掲載同期」です。
 
 `DATABASE_URL`、`DMM_API_ID`、`DMM_AFFILIATE_ID` を環境変数に設定したうえで、PowerShellから一回だけ実行します。
 
@@ -87,6 +89,8 @@ npm run sync:sales:check -- --persist
 成功時は終了コード0、設定不足・取得失敗・保存失敗は終了コード1です。Railwayでは同じ環境変数をServiceに設定して手動実行ログで確認できますが、Schedulerの作成・実行時刻・頻度の設定はまだ行いません。
 
 ## 実環境E2E確認チェックリスト（Step 5C）
+
+> この節の旧コマンドは実行しません。指定セール一覧の掲載集合だけを正規根拠として使用します。
 
 実行前に、ローカルまたはRailwayの実行プロセスへ次の環境変数が設定されていることを、値を表示せずに確認します。
 

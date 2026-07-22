@@ -144,6 +144,13 @@ Codexは以下を行わない。
 - 条件未達の候補を件数合わせで投稿しない。
 - `DRY_RUN` は実投稿と同じ判定経路を通す。
 
+## セール掲載同期の恒久安全ルール
+
+- セール根拠は、利用者が指定セール一覧上でChrome拡張を明示操作して確認した現在掲載集合だけとする。価格差、既存価格フラグ、商品名だけでセールを推測しない。
+- サーバー側HTML巡回、background・定期巡回、年齢認証やrobots.txtの回避、FANZA Cookie・localStorage・HTML全文の送信を禁止する。
+- 手動セールpersistは、上限超過0・不正0・metadata失敗0・VR0・完全集合・check-only集合hash一致・migration適用済みをすべて確認し、単一transactionで一回だけ実行する。部分persistしない。
+- production migrationは、dry-run、SQLレビュー、既存件数、rollback、バックアップまたは復元手段を確認した後、ユーザーの明示承認を得て一回だけ適用する。
+
 ## VR作品の除外（恒久ルール）
 
 - VR作品は取得・保存・候補生成・投稿の全経路で除外し、女優・新作・セール・favorite_saleの全カテゴリに共通で適用する。

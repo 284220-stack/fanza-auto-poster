@@ -23,14 +23,19 @@ type ExtractionResult = {
 type ExtensionApi = {
   MAX_URLS: number;
   canPersist(result: Record<string, number | boolean>, count: number): boolean;
+  canPersistSale(result: Record<string, number | boolean | string>, count: number, snapshotComplete: boolean): boolean;
+  createSaleSyncPayload(urls: string[], persist: boolean, snapshotComplete: boolean, expectedHash?: string): Record<string, unknown>;
   createSyncPayload(urls: string[], persist: boolean): { urls: string[]; persist: boolean };
   classifyProductLink(value: string): { format: string; contentId?: string } | undefined;
   extractContentId(value: string): string | undefined;
   extractFavoriteUrls(documentValue: { querySelectorAll(selector: string): Anchor[] }, pageUrl: string, limit?: number): ExtractionResult;
+  extractSaleUrls(documentValue: { querySelectorAll(selector: string): Anchor[] }, pageUrl: string, limit?: number): ExtractionResult;
   isAllowedFavoritesPage(value: string): boolean;
+  isAllowedSalePage(value: string): boolean;
   isExplicitVrLabel(value: string): boolean;
   normalizeDashboardOrigin(value: string): string;
   sendFavoriteSync(fetchValue: typeof fetch, origin: string, urls: string[], persist: boolean): Promise<Record<string, number | boolean>>;
+  sendManualSaleSync(fetchValue: typeof fetch, origin: string, urls: string[], persist: boolean, snapshotComplete: boolean, expectedHash?: string): Promise<Record<string, number | boolean>>;
 };
 
 const extensionRoot = new URL('../chrome-extension/', import.meta.url);
@@ -48,6 +53,11 @@ assert.equal(api.isAllowedFavoritesPage('https://www.fanza.com/my/favorites/'), 
 assert.equal(api.isAllowedFavoritesPage('https://video.dmm.co.jp/av/content/?id=one'), false);
 assert.equal(api.isAllowedFavoritesPage('https://example.test/favorite/'), false);
 assert.equal(api.isAllowedFavoritesPage('http://www.dmm.co.jp/digital/-/bookmark/'), false);
+assert.equal(api.isAllowedSalePage('https://video.dmm.co.jp/av/list/'), true);
+assert.equal(api.isAllowedSalePage('https://video.dmm.co.jp/av/list/?sort=date'), true);
+assert.equal(api.isAllowedSalePage('https://video.dmm.co.jp/av/listing/'), false);
+assert.equal(api.isAllowedSalePage('https://www.dmm.co.jp/av/list/'), false);
+assert.equal(api.isAllowedSalePage('http://video.dmm.co.jp/av/list/'), false);
 
 assert.equal(api.extractContentId('https://video.dmm.co.jp/av/content/?id=ABC_001&i3_ref=list'), 'abc_001');
 assert.equal(api.extractContentId('https://www.dmm.co.jp/digital/videoa/-/detail/=/cid=ABC-002/'), 'abc-002');
@@ -94,6 +104,9 @@ assert.deepEqual(JSON.parse(JSON.stringify(extracted.urlFormatCounts)), { videoA
 assert.ok(extracted.urls.every((url) => url.startsWith('https://video.dmm.co.jp/av/content/?id=') && !url.includes('tracking')));
 assert.equal(new Set(extracted.urls).size, extracted.urls.length);
 assert.throws(() => api.extractFavoriteUrls({ querySelectorAll: () => links }, 'https://video.dmm.co.jp/av/list/'));
+const saleExtracted = api.extractSaleUrls({ querySelectorAll: () => links.slice(0, 3) }, 'https://video.dmm.co.jp/av/list/?sort=date');
+assert.equal(saleExtracted.extractedCount, 3);
+assert.throws(() => api.extractSaleUrls({ querySelectorAll: () => links }, 'https://video.dmm.co.jp/av/favorite/'));
 const relativeHrefAnchor: Anchor = {
   href: 'https://video.dmm.co.jp/av/content/?id=relative001',
   textContent: '一般作品',
@@ -134,6 +147,15 @@ assert.equal(api.canPersist({ ...syncSummary, checkOnly: false }, 1), false);
 assert.throws(() => api.createSyncPayload([], false));
 assert.throws(() => api.createSyncPayload(Array.from({ length: 21 }, () => safeUrl[0]), false));
 assert.deepEqual(JSON.parse(JSON.stringify(api.createSyncPayload(safeUrl, false))), { urls: safeUrl, persist: false });
+const hash = 'a'.repeat(64);
+assert.deepEqual(JSON.parse(JSON.stringify(api.createSaleSyncPayload(safeUrl, false, true))), { urls: safeUrl, persist: false, snapshotComplete: true });
+assert.deepEqual(JSON.parse(JSON.stringify(api.createSaleSyncPayload(safeUrl, true, true, hash))), { urls: safeUrl, persist: true, snapshotComplete: true, expectedHash: hash });
+assert.throws(() => api.createSaleSyncPayload(safeUrl, true, true));
+const saleSummary = { checkOnly: true, schemaReady: true, snapshotComplete: true, snapshotHash: hash, receivedCount: 1, uniqueProductCount: 1, metadataAvailableCount: 1, invalidCount: 0, apiNotListedCount: 0, metadataIdMismatchCount: 0, invalidMetadataCount: 0, vrExcludedCount: 0, failedCount: 0 };
+assert.equal(api.canPersistSale(saleSummary, 1, true), true);
+assert.equal(api.canPersistSale({ ...saleSummary, schemaReady: false }, 1, true), false);
+assert.equal(api.canPersistSale({ ...saleSummary, vrExcludedCount: 1 }, 1, true), false);
+assert.equal(api.canPersistSale(saleSummary, 1, false), false);
 
 let capturedUrl = '';
 let capturedInit: RequestInit | undefined;
@@ -158,6 +180,17 @@ const persisted = await api.sendFavoriteSync(async (_input, init) => {
 }, 'https://example.up.railway.app', safeUrl, true);
 assert.equal(persisted.checkOnly, false);
 assert.equal(persisted.currentCount, 1);
+
+const saleChecked = await api.sendManualSaleSync(async (input, init) => {
+  assert.equal(String(input), 'https://example.up.railway.app/api/sales/manual-sync');
+  assert.deepEqual(JSON.parse(String(init?.body)), { urls: safeUrl, persist: false, snapshotComplete: true });
+  return new Response(JSON.stringify({ result: saleSummary }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}, 'https://example.up.railway.app', safeUrl, false, true);
+assert.equal(saleChecked.checkOnly, true);
+await api.sendManualSaleSync(async (_input, init) => {
+  assert.deepEqual(JSON.parse(String(init?.body)), { urls: safeUrl, persist: true, snapshotComplete: true, expectedHash: hash });
+  return new Response(JSON.stringify({ result: { ...saleSummary, checkOnly: false } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}, 'https://example.up.railway.app', safeUrl, true, true, hash);
 
 assert.equal(manifest.manifest_version, 3);
 assert.deepEqual(manifest.permissions, ['activeTab', 'scripting']);

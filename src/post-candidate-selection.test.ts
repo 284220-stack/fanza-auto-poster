@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { PostCandidateSelectionService, type CandidateSource } from './post-candidate-selection.js';
+import { DatabasePostCandidateRepository, PostCandidateSelectionService, type CandidateSource } from './post-candidate-selection.js';
 const base: CandidateSource = { productId: 1, title: '架空作品', affiliateUrl: 'https://example.com', isSale: true, status: 'available', favorite: false, actressNames: [], enabledActressNames: [], enabledNewReleaseActressNames: [], actressPriority: 0, hasRecentParentPost: false, hasPendingReply: false };
 const rows: CandidateSource[] = Array.from({ length: 6 }, (_, index) => ({ ...base, productId: index + 1, title: `作品${index + 1}`, favorite: index === 4, actressNames: index < 3 ? ['女優'] : [], enabledActressNames: index < 3 ? ['女優'] : [], enabledNewReleaseActressNames: index < 3 ? ['女優'] : [], actressPriority: index === 1 ? 10 : 1, releaseDate: `2026-01-0${index + 1}`, discountPercent: index === 1 ? 30 : undefined, sampleVideoUrl: index === 2 ? 'https://example.com/video' : undefined }));
 const result = await new PostCandidateSelectionService({ listSelectable: async () => rows }).select();
@@ -14,4 +14,16 @@ const listedFavorite = await new PostCandidateSelectionService({ listSelectable:
 assert.equal(listedFavorite.favoriteSaleCandidates.length, 1);
 const vrFavorite = await new PostCandidateSelectionService({ listSelectable: async () => [{ ...base, productId: 15, title: '[VR] 除外作品', favorite: true, isSale: true }] }).select({ saleLimit: 0, actressLimit: 0 });
 assert.equal(vrFavorite.favoriteSaleCandidates.length, 0);
+const reservedFavoriteSale = await new PostCandidateSelectionService({ listSelectable: async () => [{ ...base, productId: 16, favorite: true, isSale: true }, { ...base, productId: 17, favorite: false, isSale: true }] }).select({ saleLimit: 1, actressLimit: 0, favoriteSaleLimit: 1 });
+assert.deepEqual(reservedFavoriteSale.favoriteSaleCandidates.map((value) => value.productId), [16]);
+assert.deepEqual(reservedFavoriteSale.saleCandidates.map((value) => value.productId), [17]);
+assert.equal(new Set(reservedFavoriteSale.selected.map((value) => value.productId)).size, 2);
+const withoutSchemaQueries: string[] = [];
+await new DatabasePostCandidateRepository({ async query<T>(sql: string) { withoutSchemaQueries.push(sql); return { rows: (sql.includes('to_regclass') ? [{ ready: false }] : []) as T[] }; } }).listSelectable();
+assert.equal(withoutSchemaQueries[1].includes('FROM product_sources'), false);
+assert.ok(withoutSchemaQueries[1].includes('false AS "isSale"'));
+const withSchemaQueries: string[] = [];
+await new DatabasePostCandidateRepository({ async query<T>(sql: string) { withSchemaQueries.push(sql); return { rows: (sql.includes('to_regclass') ? [{ ready: true }] : []) as T[] }; } }).listSelectable();
+assert.ok(withSchemaQueries[1].includes("FROM product_sources ps"));
+assert.ok(withSchemaQueries[1].includes("ps.source_type='sale' AND ps.active"));
 console.log('post candidate selection: ok');

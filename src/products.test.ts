@@ -20,4 +20,9 @@ const duplicateRepo = new ProductRepository({ async query<T>() { const error = O
 await assert.rejects(new ProductService(duplicateRepo).create(input()), (error: unknown) => error instanceof ProductError && error.status === 409);
 const missingRepo = new ProductRepository({ async query<T>() { return { rows: [] as T[] }; } });
 await assert.rejects(new ProductService(missingRepo).update(99, input()), (error: unknown) => error instanceof ProductError && error.status === 404);
+const relationQueries: string[] = [];
+const sourceAwareRepo = new ProductRepository({ async query<T>(sql: string) { relationQueries.push(sql); if (sql.includes('to_regclass')) return { rows: [{ ready: true }] as T[] }; return { rows: [{ count: 1 }] as T[] }; } });
+assert.equal(await sourceAwareRepo.replaceActressRelations(1, ['女優']), 1);
+assert.ok(relationQueries[1].includes("source_type = 'actress'"));
+assert.ok(relationQueries[1].includes("'actress:' || id::text"));
 console.log('products: ok');
