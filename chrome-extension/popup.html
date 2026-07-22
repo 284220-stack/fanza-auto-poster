@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FANZA お気に入り同期</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <h1>お気に入り同期</h1>
+      <p class="notice">FANZAのお気に入りページで、ボタンを押した時だけ最大20件を確認します。</p>
+
+      <label for="dashboard-origin">Dashboard origin</label>
+      <input id="dashboard-origin" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.up.railway.app">
+      <p class="hint">同じブラウザーでDashboardへ先にBasic認証してください。この値は保存しません。</p>
+
+      <button id="check" type="button">抽出してcheck-only</button>
+      <button id="persist" class="secondary" type="button" disabled>確認済み内容をpersist</button>
+
+      <p id="status" class="status" role="status" aria-live="polite">未実行</p>
+      <dl id="extraction-result" class="results" hidden>
+        <div><dt>抽出</dt><dd id="extracted-count">0</dd></div>
+        <div><dt>重複</dt><dd id="duplicate-count">0</dd></div>
+        <div><dt>VR除外</dt><dd id="vr-count">0</dd></div>
+        <div><dt>上限超過</dt><dd id="truncated-count">0</dd></div>
+        <div><dt>現行AV形式</dt><dd id="modern-format-count">0</dd></div>
+        <div><dt>旧videoa形式</dt><dd id="legacy-format-count">0</dd></div>
+        <div><dt>未対応商品種別</dt><dd id="unsupported-product-count">0</dd></div>
+      </dl>
+      <dl id="sync-result" class="results" hidden>
+        <div><dt>既存商品</dt><dd id="matched-count">0</dd></div>
+        <div><dt>保存候補</dt><dd id="save-candidate-count">0</dd></div>
+        <div><dt>不正</dt><dd id="invalid-count">0</dd></div>
+        <div><dt>取得不能</dt><dd id="unavailable-count">0</dd></div>
+        <div><dt>API未掲載</dt><dd id="api-not-listed-count">0</dd></div>
+        <div><dt>ID不一致</dt><dd id="id-mismatch-count">0</dd></div>
+        <div><dt>metadata不完全</dt><dd id="invalid-metadata-count">0</dd></div>
+        <div><dt>失敗</dt><dd id="failed-count">0</dd></div>
+      </dl>
+    </main>
+    <script src="core.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

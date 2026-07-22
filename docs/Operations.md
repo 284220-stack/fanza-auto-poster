@@ -43,7 +43,13 @@ npm run sync:actresses -- --persist
 - `failedProductCount=0`
 - `saveCandidateCount`とお気に入り作成予定件数
 
-実ページからのURL収集はChrome拡張承認後に行う。FANZAのID、パスワード、Cookie、閲覧セッションをAPIへ送らない。`persist=true`は運用者のお気に入り集合が確定し、check-only結果を確認した場合だけ一回実行する。
+Chrome拡張は`chrome-extension`ディレクトリをデベロッパーモードで「パッケージ化されていない拡張機能」として読み込む。Dashboardを同じブラウザーで一度開いてBasic認証を済ませ、FANZAのお気に入りページを表示して拡張popupを開く。Dashboard originを都度入力し、「抽出してcheck-only」を押す。origin、認証値、お気に入りURLは拡張へ保存されない。
+
+抽出件数は最大20件で、popupには件数だけが表示される。`invalidCount=0`、`metadataUnavailableCount=0`、`metadataFailedCount=0`、`vrExcludedCount=0`、`failedProductCount=0`を確認した場合だけpersistボタンが有効になる。運用者がお気に入り集合を確認して明示的にpersistを一回実行する。対象外ページ、401、通信失敗、安全性条件不一致では停止し、条件を緩和しない。
+
+抽出時の「未対応商品種別」はvideoa以外の公式商品リンクであり、AV商品へ推測変換しない。「API未掲載」は要求content_idが公式ItemListのvideoa応答にない状態、「ID不一致」は応答内に要求IDがない状態、「metadata不完全」は一致商品に保存必須情報がない状態である。これらはURL・商品名を表示せず件数だけを確認し、1件でもある集合を部分persistしない。
+
+拡張はボタンクリック時だけ動作し、バックグラウンド巡回・定期実行を行わない。FANZAのID、パスワード、Cookie、localStorage、ページHTMLを読み出し・送信しない。セール掲載集合が未取得ならfavorite_sale候補0件は正常であり、価格差で代替判定しない。
 
 ## 投稿preview
 

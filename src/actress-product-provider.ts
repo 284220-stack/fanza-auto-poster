@@ -6,15 +6,32 @@ import { isVrProduct } from './vr-product.js';
 export type DmmHttpClient = { get(url: string, signal: AbortSignal): Promise<{ status: number; json(): Promise<unknown> }> };
 export type ActressProductProviderResult = ProviderResult & { registeredActressCount: number; searchedActressCount: number; verifiedMatchCount: number; unmatchedCount: number; uniqueProductCount: number; perActress: Array<{ actressId: number; fetchedCount: number; verifiedMatchCount: number }> };
 type ApiItem = Record<string, unknown>;
+export type ProductMetadataLookupResult =
+  | { status: 'available'; item: ProviderItem }
+  | { status: 'api_not_listed' | 'id_mismatch' | 'invalid_metadata' | 'vr_excluded' };
 
 export class ProductMetadataProvider {
   constructor(private readonly http: DmmHttpClient, private readonly environment: NodeJS.ProcessEnv = process.env) {}
 
   async fetch(contentId: string, source: ProductSource = 'actress'): Promise<ProviderItem | undefined> {
-    const body = await this.request({ cid: contentId, hits: '1', offset: '1' });
-    const item = items(body)[0];
-    const product = item ? toProduct(item, source) : undefined;
-    return product && product.externalProductId.toLowerCase() === contentId.trim().toLowerCase() && !isVrProduct(product) ? product : undefined;
+    const result = await this.lookupWithHits(contentId, source, '1');
+    return result.status === 'available' ? result.item : undefined;
+  }
+
+  async lookup(contentId: string, source: ProductSource = 'actress'): Promise<ProductMetadataLookupResult> {
+    return this.lookupWithHits(contentId, source, '20');
+  }
+
+  private async lookupWithHits(contentId: string, source: ProductSource, hits: string): Promise<ProductMetadataLookupResult> {
+    const expected = contentId.trim().toLowerCase();
+    const responseItems = items(await this.request({ cid: contentId, hits, offset: '1' }));
+    if (responseItems.length === 0) return { status: 'api_not_listed' };
+    const raw = responseItems.find((item) => apiItemId(item)?.toLowerCase() === expected);
+    if (!raw) return { status: 'id_mismatch' };
+    const product = toProduct(raw, source);
+    if (!product) return { status: 'invalid_metadata' };
+    if (isVrProduct(product)) return { status: 'vr_excluded' };
+    return { status: 'available', item: product };
   }
 
   private async request(extra: Record<string, string>) {
@@ -79,6 +96,7 @@ export class ActressProductProvider implements ProductProvider {
 function items(value: unknown): ApiItem[] { return typeof value === 'object' && value !== null && 'result' in value && typeof value.result === 'object' && value.result !== null && 'items' in value.result && Array.isArray(value.result.items) ? value.result.items.filter((item): item is ApiItem => object(item) !== undefined) : []; }
 function object(value: unknown): ApiItem | undefined { return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as ApiItem : undefined; }
 function string(value: unknown): string | undefined { return typeof value === 'string' && value.trim() ? value.trim() : undefined; }
+function apiItemId(raw: ApiItem) { return string(raw.content_id) ?? string(raw.product_id); }
 function toProduct(raw: ApiItem, source: ProductSource = 'actress'): ProviderItem | undefined { const id = string(raw.content_id) ?? string(raw.product_id); const title = string(raw.title); const productUrl = string(raw.URL); if (!id || !title || !productUrl) return undefined; const info = object(raw.iteminfo); const group = [info?.actress, raw.actress, raw.actresses].find(Array.isArray) as unknown[] | undefined ?? []; const movie = object(raw.sampleMovieURL); const image = object(raw.imageURL); const prices = object(raw.prices); const price = parseOptionalDmmPrice(prices?.list_price); const salePrice = parseOptionalDmmPrice(prices?.price); return { source, externalProductId: id, title, productUrl, affiliateUrl: string(raw.affiliateURL), thumbnailUrl: string(image?.large) ?? string(image?.list), sampleVideoUrl: ['size_720_480', 'size_644_414', 'size_560_360'].map((key) => string(movie?.[key])).find(Boolean), price, salePrice, isSale: false, releaseDate: string(raw.date)?.slice(0, 10), actressNames: [...new Set(group.map((value) => string(object(value)?.name)).filter((name): name is string => Boolean(name)))], fetchedAt: new Date().toISOString(), rawData: classification(raw) }; }
 function classification(raw: ApiItem) { return Object.fromEntries(['product_type', 'productType', 'category', 'floor', 'genre', 'genres'].filter((key) => raw[key] !== undefined).map((key) => [key, raw[key]])); }
 function matches(responseNames: readonly string[], terms: readonly string[]) { return responseNames.some((name) => terms.includes(name)); }

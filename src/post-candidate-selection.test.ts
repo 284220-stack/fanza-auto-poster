@@ -8,4 +8,10 @@ const excluded = await new PostCandidateSelectionService({ listSelectable: async
 assert.equal(excluded.selected.length, 0); assert.equal(excluded.excludedCount, 3); assert.ok(excluded.warnings.length > 0);
 const priceUnknown = await new PostCandidateSelectionService({ listSelectable: async () => [{ ...base, productId: 12, isSale: false, actressNames: ['女優'], enabledActressNames: ['女優'], enabledNewReleaseActressNames: ['女優'] }] }).select();
 assert.equal(priceUnknown.saleCandidates.length, 0); assert.equal(priceUnknown.actressCandidates.length, 1);
+const favoriteWithoutSaleListing = await new PostCandidateSelectionService({ listSelectable: async () => [{ ...base, productId: 13, favorite: true, isSale: false }] }).select({ saleLimit: 0, actressLimit: 0 });
+assert.equal(favoriteWithoutSaleListing.favoriteSaleCandidates.length, 0);
+const listedFavorite = await new PostCandidateSelectionService({ listSelectable: async () => [{ ...base, productId: 14, favorite: true, isSale: true }] }).select({ saleLimit: 0, actressLimit: 0 });
+assert.equal(listedFavorite.favoriteSaleCandidates.length, 1);
+const vrFavorite = await new PostCandidateSelectionService({ listSelectable: async () => [{ ...base, productId: 15, title: '[VR] 除外作品', favorite: true, isSale: true }] }).select({ saleLimit: 0, actressLimit: 0 });
+assert.equal(vrFavorite.favoriteSaleCandidates.length, 0);
 console.log('post candidate selection: ok');

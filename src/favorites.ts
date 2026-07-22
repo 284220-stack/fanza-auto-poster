@@ -17,6 +17,9 @@ export type FavoriteSyncResult = FavoriteSyncPlan & {
   unmatchedProductCount: number;
   saveCandidateCount: number;
   metadataUnavailableCount: number;
+  apiNotListedCount: number;
+  metadataIdMismatchCount: number;
+  invalidMetadataCount: number;
   metadataFailedCount: number;
   vrExcludedCount: number;
   createdProductCount: number;
@@ -28,6 +31,9 @@ export type FavoriteImportPreview = {
   items: import('./providers.js').ProviderItem[];
   saveCandidateCount: number;
   metadataUnavailableCount: number;
+  apiNotListedCount: number;
+  metadataIdMismatchCount: number;
+  invalidMetadataCount: number;
   failedCount: number;
   vrExcludedCount: number;
 };
@@ -142,7 +148,7 @@ export class FavoriteSyncService {
   }
 }
 
-function emptyImportPreview(): FavoriteImportPreview { return { items: [], saveCandidateCount: 0, metadataUnavailableCount: 0, failedCount: 0, vrExcludedCount: 0 }; }
+function emptyImportPreview(): FavoriteImportPreview { return { items: [], saveCandidateCount: 0, metadataUnavailableCount: 0, apiNotListedCount: 0, metadataIdMismatchCount: 0, invalidMetadataCount: 0, failedCount: 0, vrExcludedCount: 0 }; }
 
 function summary(checkOnly: boolean, receivedCount: number, uniqueProductCount: number, invalidCount: number, matchedProductCount: number, unmatchedProductCount: number, preview: FavoriteImportPreview, imported: { createdCount: number; updatedCount: number; failedCount: number } | undefined, plan: FavoriteSyncPlan): FavoriteSyncResult {
   return {
@@ -155,6 +161,9 @@ function summary(checkOnly: boolean, receivedCount: number, uniqueProductCount: 
     unmatchedProductCount,
     saveCandidateCount: preview.saveCandidateCount,
     metadataUnavailableCount: preview.metadataUnavailableCount,
+    apiNotListedCount: preview.apiNotListedCount,
+    metadataIdMismatchCount: preview.metadataIdMismatchCount,
+    invalidMetadataCount: preview.invalidMetadataCount,
     metadataFailedCount: preview.failedCount,
     vrExcludedCount: preview.vrExcludedCount,
     createdProductCount: imported?.createdCount ?? 0,
@@ -169,7 +178,11 @@ export function extractFanzaContentId(value: string): string | undefined {
   try { url = new URL(value.trim()); } catch { return undefined; }
   if (url.protocol !== 'https:' || !isOfficialHost(url.hostname)) return undefined;
 
-  const queryKeys = url.hostname.toLowerCase() === 'video.dmm.co.jp'
+  const modernVideo = url.hostname.toLowerCase() === 'video.dmm.co.jp' && /^\/av\/content\/?$/i.test(url.pathname);
+  const legacyVideoa = /^\/digital\/videoa\/-\/detail\/=\/cid=[^/]+\/?$/i.test(url.pathname);
+  if (!modernVideo && !legacyVideoa) return undefined;
+
+  const queryKeys = modernVideo
     ? ['id', 'cid', 'content_id']
     : ['cid', 'content_id'];
   for (const key of queryKeys) {

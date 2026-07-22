@@ -5,6 +5,9 @@ import type { Queryable } from './actresses.js';
 assert.equal(extractFanzaContentId('https://www.dmm.co.jp/digital/videoa/-/detail/=/cid=ABC_123/'), 'abc_123');
 assert.equal(extractFanzaContentId('https://video.dmm.co.jp/av/content/?id=SSIS-001'), 'ssis-001');
 assert.equal(extractFanzaContentId('https://video.dmm.co.jp/av/content/?content_id=test001'), 'test001');
+assert.equal(extractFanzaContentId('https://video.dmm.co.jp/av/content/?id=test001&tracking=value'), 'test001');
+assert.equal(extractFanzaContentId('https://video.dmm.co.jp/av/list/?id=test001'), undefined);
+assert.equal(extractFanzaContentId('https://www.dmm.co.jp/digital/cg/-/detail/=/cid=test001/'), undefined);
 assert.equal(extractFanzaContentId('https://example.test/digital/videoa/-/detail/=/cid=abc/'), undefined);
 assert.equal(extractFanzaContentId('http://www.dmm.co.jp/digital/videoa/-/detail/=/cid=abc/'), undefined);
 assert.equal(extractFanzaContentId('https://www.dmm.co.jp/digital/videoa/-/detail/=/cid=bad.value/'), undefined);
@@ -37,6 +40,9 @@ assert.deepEqual(checked, {
   unmatchedProductCount: 1,
   saveCandidateCount: 0,
   metadataUnavailableCount: 0,
+  apiNotListedCount: 0,
+  metadataIdMismatchCount: 0,
+  invalidMetadataCount: 0,
   metadataFailedCount: 0,
   vrExcludedCount: 0,
   createdProductCount: 0,
@@ -67,7 +73,7 @@ const integrationStore: FavoriteSyncStore = {
   async replace(ids) { integratedReplaceCalls += 1; return { currentCount: ids.length, createdCount: ids.length, refreshedCount: 0, removedCount: 1 }; }
 };
 const importer = {
-  async preview() { return { items: [{ source: 'favorite' as const, externalProductId: 'new', title: '商品', productUrl: 'https://video.dmm.co.jp/av/content/?id=new', affiliateUrl: 'https://al.dmm.co.jp/safe', price: null, salePrice: null, fetchedAt: new Date().toISOString() }], saveCandidateCount: 1, metadataUnavailableCount: 0, failedCount: 0, vrExcludedCount: 0 }; },
+  async preview() { return { items: [{ source: 'favorite' as const, externalProductId: 'new', title: '商品', productUrl: 'https://video.dmm.co.jp/av/content/?id=new', affiliateUrl: 'https://al.dmm.co.jp/safe', price: null, salePrice: null, fetchedAt: new Date().toISOString() }], saveCandidateCount: 1, metadataUnavailableCount: 0, apiNotListedCount: 0, metadataIdMismatchCount: 0, invalidMetadataCount: 0, failedCount: 0, vrExcludedCount: 0 }; },
   async persist() { integratedPersistCalls += 1; imported = true; return { createdCount: 1, updatedCount: 0, skippedCount: 0, failedCount: 0 }; }
 };
 const integrated = new FavoriteSyncService(integrationStore, importer);
@@ -91,9 +97,12 @@ const unsafe = new FavoriteSyncService({
   async planReplacement() { return { currentCount: 0, createdCount: 0, refreshedCount: 0, removedCount: 0 }; },
   async replace() { unsafeReplaceCalls += 1; return { currentCount: 0, createdCount: 0, refreshedCount: 0, removedCount: 0 }; }
 }, {
-  async preview() { return { items: [], saveCandidateCount: 0, metadataUnavailableCount: 1, failedCount: 0, vrExcludedCount: 0 }; },
+  async preview() { return { items: [], saveCandidateCount: 0, metadataUnavailableCount: 1, apiNotListedCount: 1, metadataIdMismatchCount: 0, invalidMetadataCount: 0, failedCount: 0, vrExcludedCount: 0 }; },
   async persist() { throw new Error('must_not_run'); }
 });
+const unavailableCheck = await unsafe.sync(['https://video.dmm.co.jp/av/content/?id=missing']);
+assert.equal(unavailableCheck.metadataUnavailableCount, 1);
+assert.equal(unavailableCheck.apiNotListedCount, 1);
 await assert.rejects(unsafe.sync(['https://video.dmm.co.jp/av/content/?id=missing'], true), (error: unknown) => error instanceof FavoriteSyncError && error.status === 409);
 assert.equal(unsafeReplaceCalls, 0);
 
@@ -102,7 +111,7 @@ const failedImport = new FavoriteSyncService({
   async planReplacement() { return { currentCount: 0, createdCount: 0, refreshedCount: 0, removedCount: 0 }; },
   async replace() { unsafeReplaceCalls += 1; return { currentCount: 0, createdCount: 0, refreshedCount: 0, removedCount: 0 }; }
 }, {
-  async preview() { return { items: [{ source: 'favorite' as const, externalProductId: 'new', title: '商品', productUrl: 'https://video.dmm.co.jp/av/content/?id=new', affiliateUrl: 'https://al.dmm.co.jp/safe', price: null, salePrice: null, fetchedAt: new Date().toISOString() }], saveCandidateCount: 1, metadataUnavailableCount: 0, failedCount: 0, vrExcludedCount: 0 }; },
+  async preview() { return { items: [{ source: 'favorite' as const, externalProductId: 'new', title: '商品', productUrl: 'https://video.dmm.co.jp/av/content/?id=new', affiliateUrl: 'https://al.dmm.co.jp/safe', price: null, salePrice: null, fetchedAt: new Date().toISOString() }], saveCandidateCount: 1, metadataUnavailableCount: 0, apiNotListedCount: 0, metadataIdMismatchCount: 0, invalidMetadataCount: 0, failedCount: 0, vrExcludedCount: 0 }; },
   async persist() { return { createdCount: 0, updatedCount: 0, skippedCount: 0, failedCount: 1 }; }
 });
 await assert.rejects(failedImport.sync(['https://video.dmm.co.jp/av/content/?id=new'], true), (error: unknown) => error instanceof FavoriteSyncError && error.status === 500);

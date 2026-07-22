@@ -6,8 +6,8 @@ const saved: Array<{ source: string; isSale?: boolean }> = [];
 let relationCalls = 0;
 const product: Product = { id: 1, fanzaProductId: 'known', title: '既存', productUrl: 'https://video.dmm.co.jp/av/content/?id=known', affiliateUrl: 'https://al.dmm.co.jp/safe', sampleVideoUrl: null, thumbnailUrl: null, price: null, salePrice: null, isSale: true, releaseDate: null, status: 'available', createdAt: '', updatedAt: '' };
 const metadata = {
-  async fetch(id: string, source?: string) {
-    return { source: source ?? 'actress', externalProductId: id, title: '商品', productUrl: `https://video.dmm.co.jp/av/content/?id=${id}`, affiliateUrl: 'https://al.dmm.co.jp/safe', price: null, salePrice: null, isSale: false, fetchedAt: new Date().toISOString() };
+  async lookup(id: string, source?: string) {
+    return { status: 'available' as const, item: { source: source ?? 'actress', externalProductId: id, title: '商品', productUrl: `https://video.dmm.co.jp/av/content/?id=${id}`, affiliateUrl: 'https://al.dmm.co.jp/safe', price: null, salePrice: null, isSale: false, fetchedAt: new Date().toISOString() } };
   }
 };
 const writer = {

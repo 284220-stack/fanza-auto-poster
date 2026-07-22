@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "FANZA お気に入り同期",
+  "version": "0.1.0",
+  "description": "利用者の明示操作でFANZAお気に入り商品を安全にcheck-only同期します。",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "optional_host_permissions": [
+    "https://*.up.railway.app/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "action": {
+    "default_title": "FANZA お気に入り同期",
+    "default_popup": "popup.html"
+  }
+}

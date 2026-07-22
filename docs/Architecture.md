@@ -61,9 +61,19 @@ settings（独立したシステム設定）
 - 一回の入力は最大20件とし、未知content_idは`FavoriteProductProvider`で低頻度に順次補完する。check-onlyではmetadata取得予定と商品・お気に入り保存予定の件数だけを返し、DBを変更しない。
 - `persist=true`は入力がすべて妥当で、非VRのmetadataが全件取得でき、商品upsertが全件成功した場合だけ、既存の`favorites`を単一SQLでスナップショット置換する。空集合、無効URL、metadata不能、VR、商品保存失敗がある場合はfavoritesを変更しない。FANZAの認証情報、Cookie、閲覧セッションは扱わない。
 
+## Chromeお気に入り同期拡張
+
+- Manifest V3のpopupだけを持ち、background worker、content scriptの常駐登録、alarm、Cookie・storage権限を持たない。利用者のクリック時だけ`activeTab`へ抽出関数を注入する。
+- 実行対象はHTTPSのFANZA/DMM公式hostかつpathnameに明確な`favorite`または`bookmark` segmentを持つページに限定する。同期対象商品リンクは現行`video.dmm.co.jp/av/content`と旧`www.dmm.co.jp/digital/videoa/.../detail`だけを許可し、他floorをAV商品として推測しない。明確なcontent_idを安全な標準URLへ正規化、重複除去して最大20件に制限する。
+- 抽出結果は現行AV形式、旧videoa形式、未対応公式商品種別、ID不正をURL全文なしの件数で表示する。重複は同期可能なcontent_id単位、上限超過はVR・未対応種別を除いた同期可能な一意商品数から算出する。
+- DOMからはリンクURLと、明確な先頭VR表記を判定するための表示テキストだけを一時的に参照する。送信bodyは`urls`と`persist`だけで、FANZAのCookie、認証情報、localStorage、ページHTML、商品名を含めない。metadata取得後もサーバー側の共通VR判定を通す。
+- Dashboard originはpopupへ都度入力し、拡張内へ保存しない。Railwayの`*.up.railway.app` HTTPS（ローカル確認時だけlocalhost/127.0.0.1のHTTP）に限定し、実行時にそのoriginだけのhost permissionを要求する。Basic認証値は埋め込み・読取りを行わず、同じブラウザーで事前認証済みのDashboard originへ送信する。401時は安全に停止する。
+- 最初の送信は常にcheck-onlyである。入力、metadata、VR、商品保存予定を含む安全性条件がすべて成功した場合だけpersistボタンを有効化し、確認dialog後の一回だけ`persist=true`を送る。popupを閉じると承認状態は失われる。
+
 ## お気に入り商品Provider
 
 - `FavoriteProductProvider`は公式商品URLから抽出したcontent_idをページ単位で重複排除し、`ProductMetadataProvider`を通じてDMM WebサービスItemListの`cid`検索で商品情報を補完する。
+- `ProductMetadataProvider`は`cid`応答内から要求content_idと厳密一致する項目を選ぶ。0件は`api_not_listed`、応答はあるが一致なしは`id_mismatch`、一致項目の必須情報不足は`invalid_metadata`、共通VR判定一致は`vr_excluded`として分類する。Favorite同期結果は理由別件数だけを返す。
 - metadataは`source=favorite`へ正規化し、タイトル、商品URL、アフィリエイトURL、発売日、女優、サンプル動画、画像、取得可能な固定価格を返す。価格不明は保存候補から除外しない。
 - `ProductMetadataProvider`と`FavoriteProductProvider`の両方で共通VR判定を適用する。無効URL、metadataなし、取得失敗は安全なreason codeと件数にし、生URL、商品名、認証値は出力しない。
 - `FavoriteProductImportService`がProviderのcheck-only結果を再取得せず商品保存へ渡し、保存後に全content_idを再照合する。お気に入り補完は`product_actresses`を変更せず、女優関連は女優起点同期が管理する。Favorite同期Serviceは再照合成功後だけfavoritesを更新する。Chrome拡張は別Stepで行う。
