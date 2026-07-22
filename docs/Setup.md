@@ -1,5 +1,7 @@
 # 開発環境セットアップ（Windows）
 
+> 現在の運用手順は`docs/Operations.md`、障害対応は`docs/IncidentResponse.md`を参照してください。`DRY_RUN=true`、投稿Scheduler未有効、実X投稿なしが安全な既定状態です。以下のStep別記録には過去の診断手順も含まれるため、価格調査や旧セール方式を現在の完了条件として再開しないでください。
+
 ## 必要なソフトウェア
 
 - Git

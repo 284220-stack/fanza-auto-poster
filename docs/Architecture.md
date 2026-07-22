@@ -164,7 +164,7 @@ settings（独立したシステム設定）
 
 - `XApiPostClient`はOAuth環境変数から作成され、投稿本文・URL・Xレスポンスを露出せず安全な固定エラーへ変換する。通信は注入可能なtransportでテストする。
 - `post_history`へ`execution_status`と`parent_history_id`を追加し、親投稿の`pending_reply`と返信成功後の`posted`を表す。dryRunは履歴保存しない。
-- 統合サービスは同一プロセス内でproductIdごとの実行をロックする。分散ロック、動画、実行API、投稿候補選定は未実装である。
+- 統合サービスは同一プロセス内でproductIdごとの実行をロックする。実行API、投稿候補選定、media添付は後続節で統合済みだが、分散ロックは未実装である。
 
 ## 返信再試行・再投稿禁止（Step 6F）
 
@@ -174,7 +174,7 @@ settings（独立したシステム設定）
 ## 投稿実行フロー統合（Step 6G）
 
 - `PostExecutionOrchestrator`は適格性確認を先に実行し、pending_replyは返信再試行、再投稿期間中はブロック、その他は新規スレッド投稿へ既存サービスを委譲する。
-- Basic認証下の`POST /api/posts/execute`は安全な要約だけを返す。productId単位の同一プロセス内ロックがあり、分散ロック、動画、候補選定、スケジューラーは未実装である。
+- Basic認証下の`POST /api/posts/execute`は安全な要約だけを返す。productId単位の同一プロセス内ロックがあり、候補選定・preview・一回実行CLI・media添付は後続節で統合済みだが、分散ロックは未実装である。
 
 ## 投稿候補選定（Step 6I）
 
