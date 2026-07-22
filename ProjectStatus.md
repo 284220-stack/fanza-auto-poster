@@ -8,14 +8,14 @@
 - 追加テストは`【PR】`、商品名、長い商品名の80文字省略、表記欠損拒否、live-one本文を含む。`npm run check`、全テスト、`npm run build`、`git diff --check`は成功した。
 - Railway最終deployment `4182c9e0-4c59-407c-bb8c-64ee04068cc5`はSUCCESS。productionの1件preflightはactress候補1件、先頭`【PR】`、対象商品名あり、親本文URLなし、70文字、media=image、自己返信あり、警告は`sample_video_unavailable`のみ、error 0で完了した。確認tokenは生成したがlive実行には使用していない。
 - production previewはselected 2、dry-run 2、blocked 0、failed 0。検証後もproducts 58、favorites 20、product_actresses 8、post_history 0、pending reply 0、live guard 0、scheduler日次guard 0で不変。Dashboardは認証付きHTTP 200、起動ログ正常である。`DRY_RUN=true`、Scheduler disabled、実X投稿・media upload・DB変更はない。
-- 次はGitHub標準フローを完了し、production migration、利用者によるChromeセールcheck-only/persist、実X 1件、Scheduler時刻設定・有効化を一括承認待ちとして停止する。
+- コードcommit `d14fd2e`、PR #53（`fix: enforce final post disclosure and title`）、merge commit `e9d8e3b`でmainへmerge済み。mainとorigin/mainは一致した。次はproduction migration、利用者によるChromeセールcheck-only/persist、実X 1件、Scheduler時刻設定・有効化を一括承認待ちとして停止する。
 
 ## 最終承認ゲート（安全な自動実装完了、2026-07-23）
 
-- Step 12はPR #50（`feat: add manual sale listing sync`、merge commit `be2acc0`）、Step 13はPR #51（`feat: add production posting safety controls`、merge commit `81679d3`）でmainへmerge済み。mainとorigin/mainは一致し、各StepのCompletion Gate・自己レビュー・Railway検証は成功した。
+- Step 12はPR #50（`feat: add manual sale listing sync`、merge commit `be2acc0`）、Step 13はPR #51（`feat: add production posting safety controls`、merge commit `81679d3`）、Step 14はPR #53（`fix: enforce final post disclosure and title`、merge commit `e9d8e3b`）でmainへmerge済み。mainとorigin/mainは一致し、各StepのCompletion Gate・自己レビュー・Railway検証は成功した。
 - 完成済み経路は、女優起点商品取得、手動お気に入り同期、手動セール掲載同期、複数取得元履歴、sale/actress/favorite_sale候補、VR除外、親投稿＋自己返信、動画/画像fallback、30日・pending・最低間隔・週間上限、X read-only診断、本番1件preflight/guard、Scheduler DB排他・JST日次guard、Dashboard、運用・障害文書である。
 - productionはproducts 58、favorites 20、product_actresses 8、post_history 0、pending reply 0、VR 0、live guard 0、Scheduler日次guard 0。`DRY_RUN=true`、Scheduler disabled、JST時刻未設定、実X投稿・実media upload 0である。
-- production previewはactress 2件・dry-run成功2件・failed 0。本番1件preflightはactress候補1件、PR本文51文字、image fallback、自己返信あり、error 0。Xは4資格情報の設定有無と`v2.me()` read-only認証成功まで確認し、書込み・media upload・plan/rate limitは未実行である。
+- production previewはactress 2件・dry-run成功2件・failed 0。本番1件preflightはactress候補1件、先頭`【PR】`、公式商品名あり、親本文URLなし、本文70文字、image fallback、自己返信あり、error 0。Xは4資格情報の設定有無と`v2.me()` read-only認証成功まで確認し、書込み・media upload・plan/rate limitは未実行である。
 - `product_sources` migrationはローカルテスト・dry-run SQLレビュー・up/down・既存favorites 20件と女優関連8件の非破壊backfill確認まで完了したが、production未適用である。Railway Postgres volumeはREADYだが、復元可能なbackup/snapshotはCLIから確認できていない。
 - 一括承認後の順序は、(1) backup/snapshot確認、(2) production migrationを一回適用して件数確認、(3) 利用者がChromeでセール一覧を開きcheck-only、(4) 全安全条件成功時だけpersist一回、(5) 全カテゴリpreview、(6) 本番1件候補・本文・mediaを再確認、(7) `DRY_RUN=false`へ一時変更して専用1件CLIを一回、(8) 直ちに`DRY_RUN=true`へ戻してX・履歴・pending確認、(9) Scheduler JST時刻決定、(10) 実投稿成功後だけSchedulerを一つ作成・有効化、である。
 - 承認がない限り、production migration、Chromeセールpersist、`DRY_RUN=false`、実X投稿・media upload、Scheduler時刻設定・作成・有効化を行わない。セールHTML自動取得、Cookie利用、年齢認証・robots.txt回避は今後も実装しない。
