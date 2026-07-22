@@ -70,6 +70,13 @@ settings（独立したシステム設定）
 - Dashboard originはpopupへ都度入力し、拡張内へ保存しない。Railwayの`*.up.railway.app` HTTPS（ローカル確認時だけlocalhost/127.0.0.1のHTTP）に限定し、実行時にそのoriginだけのhost permissionを要求する。Basic認証値は埋め込み・読取りを行わず、同じブラウザーで事前認証済みのDashboard originへ送信する。401時は安全に停止する。
 - 最初の送信は常にcheck-onlyである。入力、metadata、VR、商品保存予定を含む安全性条件がすべて成功した場合だけpersistボタンを有効化し、確認dialog後の一回だけ`persist=true`を送る。popupを閉じると承認状態は失われる。
 
+## 手動セール掲載Providerと取得経路
+
+- Chrome popupはお気に入りページと指定セール一覧をURLで排他的に判定し、共通の商品リンク分類・VR補助判定・20件上限を利用する。セールは`POST /api/sales/manual-sync`、お気に入りは`POST /api/favorites/sync`へ送り、用途を混同しない。
+- `ManualSaleSyncService`はURL検証、content_id重複除去、公式metadata補完、理由別件数、完全集合、集合hashを検証する。check-onlyはDBを変更しない。persistは`ProductSourceRepository`の単一transactionで商品upsert、旧掲載のinactive化、現掲載のupsert、`products.is_sale`互換表示更新を行う。
+- `product_sources`は商品と取得観測の多対多テーブルで、`(product_id, source_type, source_reference)`をuniqueとする。migrationは既存favoritesとproduct_actressesを履歴保持付きでbackfillし、旧`products.is_sale`をセール根拠としてbackfillしない。
+- 候補Repositoryはschema適用後、activeなsale観測を`isSale`へ写像する。schema未適用時は価格由来の`products.is_sale`へfallbackせず、sale/favorite_saleを0件として安全停止する。
+
 ## お気に入り商品Provider
 
 - `FavoriteProductProvider`は公式商品URLから抽出したcontent_idをページ単位で重複排除し、`ProductMetadataProvider`を通じてDMM WebサービスItemListの`cid`検索で商品情報を補完する。

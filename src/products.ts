@@ -55,7 +55,45 @@ export class ProductRepository {
   async remove(id: number) { return (await this.db.query<{ id: number }>('DELETE FROM products WHERE id = $1 RETURNING id', [id])).rows[0]; }
   async replaceActressRelations(productId: number, names: readonly string[]) {
     const normalized = [...new Set(names.map((name) => name.trim()).filter(Boolean))];
-    return (await this.db.query<{ count: number }>(`WITH removed AS (DELETE FROM product_actresses WHERE product_id = $1), matched AS (SELECT id FROM actresses WHERE name = ANY($2::text[]) OR aliases && $2::text[]), inserted AS (INSERT INTO product_actresses (product_id, actress_id) SELECT $1, id FROM matched ON CONFLICT DO NOTHING RETURNING 1) SELECT count(*)::int AS count FROM inserted`, [productId, normalized])).rows[0]?.count ?? 0;
+    const sourceSchemaReady = (await this.db.query<{ ready: boolean }>(
+      "SELECT to_regclass('public.product_sources') IS NOT NULL AS ready"
+    )).rows[0]?.ready ?? false;
+    const sql = sourceSchemaReady
+      ? `WITH removed AS (
+           DELETE FROM product_actresses WHERE product_id = $1
+         ), matched AS (
+           SELECT id FROM actresses WHERE name = ANY($2::text[]) OR aliases && $2::text[]
+         ), inserted AS (
+           INSERT INTO product_actresses (product_id, actress_id)
+           SELECT $1, id FROM matched ON CONFLICT DO NOTHING RETURNING actress_id
+         ), deactivated_sources AS (
+           UPDATE product_sources ps
+           SET active = false
+           WHERE ps.product_id = $1 AND ps.source_type = 'actress'
+             AND NOT EXISTS (
+               SELECT 1 FROM matched WHERE ps.source_reference = 'actress:' || matched.id::text
+             )
+           RETURNING 1
+         ), observed_sources AS (
+           INSERT INTO product_sources (product_id, source_type, source_reference, first_seen_at, last_seen_at, active)
+           SELECT $1, 'actress', 'actress:' || id::text, current_timestamp, current_timestamp, true
+           FROM matched
+           ON CONFLICT (product_id, source_type, source_reference) DO UPDATE SET
+             last_seen_at = EXCLUDED.last_seen_at,
+             active = true
+           RETURNING 1
+         )
+         SELECT count(*)::int AS count FROM inserted`
+      : `WITH removed AS (
+           DELETE FROM product_actresses WHERE product_id = $1
+         ), matched AS (
+           SELECT id FROM actresses WHERE name = ANY($2::text[]) OR aliases && $2::text[]
+         ), inserted AS (
+           INSERT INTO product_actresses (product_id, actress_id)
+           SELECT $1, id FROM matched ON CONFLICT DO NOTHING RETURNING 1
+         )
+         SELECT count(*)::int AS count FROM inserted`;
+    return (await this.db.query<{ count: number }>(sql, [productId, normalized])).rows[0]?.count ?? 0;
   }
 }
 

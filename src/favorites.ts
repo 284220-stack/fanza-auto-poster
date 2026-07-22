@@ -81,8 +81,44 @@ export class FavoriteRepository implements FavoriteSyncStore {
   }
 
   async replace(productIds: readonly string[]): Promise<FavoriteSyncPlan> {
+    const sourceSchemaReady = (await this.db.query<{ ready: boolean }>(
+      "SELECT to_regclass('public.product_sources') IS NOT NULL AS ready"
+    )).rows[0]?.ready ?? false;
     const row = (await this.db.query<FavoriteSyncPlan>(
-      `WITH desired AS (
+      sourceSchemaReady ? `WITH desired AS (
+         SELECT unnest($1::bigint[]) AS product_id
+       ), removed AS (
+         DELETE FROM favorites current
+         WHERE NOT EXISTS (SELECT 1 FROM desired WHERE desired.product_id = current.product_id)
+         RETURNING product_id
+       ), upserted AS (
+         INSERT INTO favorites (product_id, synced_at)
+         SELECT product_id, current_timestamp FROM desired
+         ON CONFLICT (product_id) DO UPDATE SET synced_at = EXCLUDED.synced_at
+         RETURNING product_id, (xmax = 0) AS created
+       ), deactivated_sources AS (
+         UPDATE product_sources current
+         SET active = false
+         WHERE current.source_type = 'favorite'
+           AND current.source_reference = 'manual-favorite-sync'
+           AND NOT EXISTS (SELECT 1 FROM desired WHERE desired.product_id = current.product_id)
+         RETURNING 1
+       ), observed_sources AS (
+         INSERT INTO product_sources (product_id, source_type, source_reference, first_seen_at, last_seen_at, active)
+         SELECT product_id, 'favorite', 'manual-favorite-sync', current_timestamp, current_timestamp, true
+         FROM desired
+         ON CONFLICT (product_id, source_type, source_reference) DO UPDATE SET
+           last_seen_at = EXCLUDED.last_seen_at,
+           active = true
+         RETURNING 1
+       )
+       SELECT
+         cardinality($1::bigint[])::int AS "currentCount",
+         count(*) FILTER (WHERE created)::int AS "createdCount",
+         count(*) FILTER (WHERE NOT created)::int AS "refreshedCount",
+         (SELECT count(*) FROM removed)::int AS "removedCount"
+       FROM upserted`
+      : `WITH desired AS (
          SELECT unnest($1::bigint[]) AS product_id
        ), removed AS (
          DELETE FROM favorites current

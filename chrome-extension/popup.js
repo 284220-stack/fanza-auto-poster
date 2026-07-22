@@ -39,13 +39,13 @@
 
   function showSync(result) {
     document.querySelector('#matched-count').textContent = number(result.matchedProductCount);
-    document.querySelector('#save-candidate-count').textContent = number(result.saveCandidateCount);
+    document.querySelector('#save-candidate-count').textContent = number(result.saveCandidateCount ?? (result.metadataAvailableCount - result.matchedProductCount));
     document.querySelector('#invalid-count').textContent = number(result.invalidCount);
-    document.querySelector('#unavailable-count').textContent = number(result.metadataUnavailableCount);
+    document.querySelector('#unavailable-count').textContent = number(result.metadataUnavailableCount ?? (result.apiNotListedCount + result.metadataIdMismatchCount + result.invalidMetadataCount));
     document.querySelector('#api-not-listed-count').textContent = number(result.apiNotListedCount);
     document.querySelector('#id-mismatch-count').textContent = number(result.metadataIdMismatchCount);
     document.querySelector('#invalid-metadata-count').textContent = number(result.invalidMetadataCount);
-    document.querySelector('#failed-count').textContent = number(result.metadataFailedCount + result.failedProductCount);
+    document.querySelector('#failed-count').textContent = number((result.metadataFailedCount ?? 0) + (result.failedProductCount ?? result.failedCount ?? 0));
     syncResult.hidden = false;
   }
 
@@ -53,7 +53,9 @@
     switch (error && error.code) {
       case 'invalid_dashboard_origin': return 'Railway DashboardのHTTPS originだけを入力してください。';
       case 'not_favorite_page': return 'FANZAのお気に入りページで実行してください。';
+      case 'not_sale_page': return '指定されたFANZAセール一覧ページで実行してください。';
       case 'invalid_urls': return '安全に同期できる公式商品URLがありません。';
+      case 'invalid_snapshot_hash': return 'check-only後の商品集合を確認できません。';
       case 'dashboard_auth_required': return 'Dashboardを同じブラウザーで開き、Basic認証後に再実行してください。';
       case 'sync_rejected': return '同期APIが要求を拒否しました。Dashboardで状態を確認してください。';
       case 'invalid_response': return '同期APIの応答を確認できませんでした。';
@@ -68,28 +70,34 @@
     return chrome.permissions.request({ origins });
   }
 
-  async function activeFavoriteTab() {
+  async function activeSyncTab() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || typeof tab.id !== 'number' || !sync.isAllowedFavoritesPage(tab.url)) throw new sync.SafeSyncError('not_favorite_page');
-    return tab;
+    if (!tab || typeof tab.id !== 'number') throw new sync.SafeSyncError('not_favorite_page');
+    if (sync.isAllowedSalePage(tab.url)) return { tab, mode: 'sale' };
+    if (sync.isAllowedFavoritesPage(tab.url)) return { tab, mode: 'favorite' };
+    throw new sync.SafeSyncError('not_favorite_page');
   }
 
-  async function extractFromTab(tabId) {
+  async function extractFromTab(tabId, mode) {
     await chrome.scripting.executeScript({ target: { tabId }, files: ['core.js'] });
     const [execution] = await chrome.scripting.executeScript({
       target: { tabId },
-      func: (limit) => globalThis.FanzaFavoriteSync.extractFavoriteUrls(document, location.href, limit),
-      args: [sync.MAX_URLS]
+      func: (limit, selectedMode) => selectedMode === 'sale'
+        ? globalThis.FanzaFavoriteSync.extractSaleUrls(document, location.href, limit)
+        : globalThis.FanzaFavoriteSync.extractFavoriteUrls(document, location.href, limit),
+      args: [sync.MAX_URLS, mode]
     });
     if (!execution || !execution.result) throw new sync.SafeSyncError('invalid_urls');
     return execution.result;
   }
 
-  async function send(origin, urls, persist) {
+  async function send(origin, urls, persist, mode, snapshotComplete, expectedHash) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20_000);
     try {
-      return await sync.sendFavoriteSync(fetch.bind(globalThis), origin, urls, persist, controller.signal);
+      return mode === 'sale'
+        ? await sync.sendManualSaleSync(fetch.bind(globalThis), origin, urls, persist, snapshotComplete, expectedHash, controller.signal)
+        : await sync.sendFavoriteSync(fetch.bind(globalThis), origin, urls, persist, controller.signal);
     } finally {
       clearTimeout(timeout);
     }
@@ -104,15 +112,19 @@
     setStatus('確認中…');
     try {
       const origin = sync.normalizeDashboardOrigin(dashboardOrigin.value);
-      const tab = await activeFavoriteTab();
+      const { tab, mode } = await activeSyncTab();
       if (!await requestOriginPermission(origin)) throw new sync.SafeSyncError('network_error');
-      const extraction = await extractFromTab(tab.id);
+      const extraction = await extractFromTab(tab.id, mode);
       showExtraction(extraction);
       if (extraction.urls.length === 0) throw new sync.SafeSyncError('invalid_urls');
-      const result = await send(origin, extraction.urls, false);
+      const snapshotComplete = extraction.truncatedCount === 0 && extraction.invalidCandidateCount === 0;
+      const result = await send(origin, extraction.urls, false, mode, snapshotComplete);
       showSync(result);
-      if (sync.canPersist(result, extraction.urls.length)) {
-        checkedState = { origin, urls: extraction.urls };
+      const safe = mode === 'sale'
+        ? sync.canPersistSale(result, extraction.urls.length, snapshotComplete)
+        : sync.canPersist(result, extraction.urls.length);
+      if (safe) {
+        checkedState = { origin, urls: extraction.urls, mode, snapshotComplete, expectedHash: result.snapshotHash };
         setStatus('check-only成功。件数確認後にpersistできます。', 'success');
       } else {
         setStatus('check-onlyは完了しましたが、安全条件を満たさないためpersistできません。', 'error');
@@ -133,9 +145,11 @@
     setBusy(true);
     setStatus('persist実行中…');
     try {
-      const result = await send(state.origin, state.urls, true);
+      const result = await send(state.origin, state.urls, true, state.mode, state.snapshotComplete, state.expectedHash);
       showSync(result);
-      setStatus(`persist成功：お気に入り${number(result.currentCount)}件`, 'success');
+      const label = state.mode === 'sale' ? 'セール掲載' : 'お気に入り';
+      const count = state.mode === 'sale' ? result.metadataAvailableCount : result.currentCount;
+      setStatus(`persist成功：${label}${number(count)}件`, 'success');
     } catch (error) {
       setStatus(messageFor(error), 'error');
     } finally {

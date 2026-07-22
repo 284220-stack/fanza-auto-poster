@@ -1,5 +1,20 @@
 # Project Status
 
+## Step 12: 手動セール掲載同期・複数取得経路（実装完了・production有効化待ち、2026-07-23）
+
+- Step 11FはPR #49で完了済みであり、お気に入りpersistを再実行していない。開始時はmainとorigin/main一致、clean、productionはproducts 58、favorites 20、VR 0、actress preview 2件成功だった。
+- Chrome拡張を、お気に入りページと指定`https://video.dmm.co.jp/av/list/`を排他的に判定する手動同期へ拡張した。共通の商品URL分類、videoa限定、content_id重複除去、最大20件、VR補助除外を再利用し、対象外ページではセール抽出できない。Cookie、認証値、localStorage、HTML全文、商品名、background、定期処理は追加していない。
+- `POST /api/sales/manual-sync`と`ManualSaleSyncService`を追加した。check-onlyは全metadataを理由別確認し、完全集合とSHA-256を返す。persistはschema適用済み、上限超過・不正・API未掲載・ID不一致・metadata不完全・VR・失敗が全て0、集合hash一致の場合だけ、`ProductSourceRepository`の単一transactionを実行する。部分persistは禁止である。
+- 最小migration `1763000000000_product_sources.ts`を追加した。product/source reference/first seen/last seen/activeを多対多で保持し、unique制約・index・更新trigger・up/downを持つ。既存favoritesとproduct_actressesをbackfillし、正規根拠のない旧価格セールはbackfillしない。Favorite置換と女優関連置換もschema適用後は各source観測を更新する。
+- sale/favorite_sale候補は`products.is_sale`の価格由来値ではなく、activeなsale観測だけを参照する。schema未適用時はsale系候補を0件へ安全停止する。favorite_saleを最大1件予約後、同一商品を除外してsale最大2件、actress最大2件を選び、カテゴリ不足を補填しない。
+- 旧Dashboard `/api/sync/sales`は409で停止し、旧価格差同期のnpm運用scriptを削除した。商品API/UIはschema適用後、現在セール掲載、取得経路、first/last seenを表示する。schema未適用でも既存商品・actress previewは動作する互換経路を持つ。
+- ローカル途中検証: `npm run check`、全テスト、`npm run build`、`git diff --check`成功。追加テストは対象ページ制限、完全集合、hash、全失敗理由、VR、schema gate、transaction commit/rollback、source履歴、favorite_sale予約、旧同期停止を含む。
+- production読み取り確認: `product_sources`は未適用、products 58、favorites 20、product_actresses 8、post_history 0、pending reply 0、適用済みmigration 4件。productionにDB変更・persist・実投稿を行っていない。
+- migration dry-runはpendingが`1763000000000_product_sources`の1件だけで、生成SQLのcreate table、制約、index、trigger、favorites 20件・product_actresses 8件の非破壊backfillをレビュー済み。Postgres volumeはREADYだが、復元可能なbackup/snapshot確認とproduction適用は明示承認待ちである。
+- Railway deployment `f2e195cc-5783-4f25-af87-b6b3a09ff75e`はSUCCESS・Online、直近error logなし。既存の非VR・available・affiliate URLあり商品1件をURL非表示でcheck-onlyし、HTTP 200、received 1、unique 1、metadata available 1、不正0、VR 0、失敗0、`schemaReady=false`を確認した。persistは実行していない。
+- migration未適用互換確認は商品API HTTP 200・58件・`sourceSchemaReady=false`、preview HTTP 200・actress 2件・previewed 2・blocked 0・failed 0。前後でproducts 58、favorites 20、product_actresses 8、post_history 0が一致し、DB変更なし。`DRY_RUN=true`、Scheduler未有効、実X投稿なし。
+- 再開地点: GitHub標準フロー完了後、依存しないmedia・X接続read-only・Scheduler dry-run・Dashboard・文書整備へ継続する。最後にproduction migration、Chromeセールcheck-only/persist、実X 1件、Scheduler時刻・有効化をまとめて承認依頼する。
+
 ## Step 11F: 手動Chromeお気に入り同期拡張（完了、2026-07-23）
 
 - 承認された安全境界に従い、`chrome-extension`へManifest V3のpopup型MVPを実装した。常駐content script、background worker、alarm、Cookie・storage権限はなく、利用者がボタンを押した時だけ対象tabへ抽出関数を注入する。

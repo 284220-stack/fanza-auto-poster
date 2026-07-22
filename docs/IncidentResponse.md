@@ -22,6 +22,14 @@
 - VR、必須ID・タイトル欠損、公式URL不正、女優厳密不一致をreason codeで区別する。
 - APIエラー時に条件を緩和せず、retryは手動で一回だけ行う。無限retryを行わない。
 
+## 手動セール同期失敗
+
+- `schemaReady=false`はmigration未適用であり、persistせずproduction migration承認・backup状態を確認する。
+- 上限超過、不正、API未掲載、ID不一致、metadata不完全、VR、失敗の各件数を分離する。1件でもあれば部分persistしない。
+- check-onlyとpersistの集合hash不一致はページ内容が変化した状態である。persistせず、同じページでcheck-onlyからやり直す。
+- transaction失敗時はrollback確認後に商品数、active sale観測、`is_sale`互換表示を読み取り確認する。無限retryしない。
+- 旧`/api/sync/sales`の409は正常な停止であり、価格差同期へ戻さない。
+
 ## preview失敗
 
 - 候補選定0件と、選定後のテンプレート・media・orchestrator失敗を分ける。

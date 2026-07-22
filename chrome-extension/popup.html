@@ -3,19 +3,19 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>FANZA お気に入り同期</title>
+    <title>FANZA 手動同期</title>
     <link rel="stylesheet" href="popup.css">
   </head>
   <body>
     <main>
-      <h1>お気に入り同期</h1>
-      <p class="notice">FANZAのお気に入りページで、ボタンを押した時だけ最大20件を確認します。</p>
+      <h1 id="sync-title">お気に入り・セール同期</h1>
+      <p class="notice">FANZAのお気に入りページまたは指定セール一覧で、ボタンを押した時だけ最大20件を確認します。</p>
 
       <label for="dashboard-origin">Dashboard origin</label>
       <input id="dashboard-origin" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.up.railway.app">
       <p class="hint">同じブラウザーでDashboardへ先にBasic認証してください。この値は保存しません。</p>
 
-      <button id="check" type="button">抽出してcheck-only</button>
+      <button id="check" type="button">対象ページを抽出してcheck-only</button>
       <button id="persist" class="secondary" type="button" disabled>確認済み内容をpersist</button>
 
       <p id="status" class="status" role="status" aria-live="polite">未実行</p>

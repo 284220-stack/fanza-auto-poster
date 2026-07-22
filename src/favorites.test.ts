@@ -130,10 +130,24 @@ const repository = new FavoriteRepository(db);
 assert.deepEqual(await repository.resolveProductIds(['known']), [{ productId: '7', contentId: 'known' }]);
 assert.deepEqual(await repository.planReplacement(['7']), plan);
 assert.deepEqual(await repository.replace(['7']), { currentCount: 1, createdCount: 1, refreshedCount: 0, removedCount: 2 });
-assert.equal(queries.length, 3);
+assert.equal(queries.length, 4);
 assert.ok(queries[0].sql.includes('lower(fanza_product_id)'));
 assert.ok(queries[1].sql.includes('cardinality($1::bigint[])'));
-assert.ok(queries[2].sql.includes('ON CONFLICT (product_id) DO UPDATE'));
-assert.deepEqual(queries.map((query) => query.values), [[['known']], [['7']], [['7']]]);
+assert.ok(queries[2].sql.includes("to_regclass('public.product_sources')"));
+assert.ok(queries[3].sql.includes('ON CONFLICT (product_id) DO UPDATE'));
+assert.deepEqual(queries.map((query) => query.values), [[['known']], [['7']], undefined, [['7']]]);
+
+const sourceQueries: string[] = [];
+const sourceAware = new FavoriteRepository({
+  async query<T>(sql: string) {
+    sourceQueries.push(sql);
+    if (sql.includes('to_regclass')) return { rows: [{ ready: true }] as T[] };
+    return { rows: [{ currentCount: 1, createdCount: 0, refreshedCount: 1, removedCount: 0 }] as T[] };
+  }
+});
+await sourceAware.replace(['7']);
+assert.ok(sourceQueries[1].includes("source_type = 'favorite'"));
+assert.ok(sourceQueries[1].includes("'manual-favorite-sync'"));
+assert.ok(sourceQueries[1].includes('last_seen_at = EXCLUDED.last_seen_at'));
 
 console.log('favorites: ok');
