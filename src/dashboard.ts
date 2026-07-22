@@ -29,6 +29,7 @@ import { FavoriteRepository, FavoriteSyncService } from './favorites.js';
 import { handleFavoriteSyncApiRequest } from './favorite-sync-api.js';
 import { FavoriteProductImportService } from './favorite-product-import.js';
 import { ProductMetadataProvider, type DmmHttpClient } from './actress-product-provider.js';
+import { PostMediaResolver } from './post-media.js';
 
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 const dataDir = process.env.APP_DATA_DIR ?? fileURLToPath(new URL('../data/', import.meta.url));
@@ -218,7 +219,7 @@ export function createDashboardServer() {
       const history = new PostHistoryRepository(getDatabasePool() as unknown as Queryable);
       const orchestrator = new PostExecutionOrchestrator(new PostEligibilityService(history), new ReplyRetryService(history), new ThreadPostPersistenceService(history));
       const client: XPostClient = { createPost: async () => { throw new Error('dry run'); }, createReply: async () => { throw new Error('dry run'); } };
-      const preview = await new PostCandidatePreviewService(() => new PostCandidateSelectionService(new DatabasePostCandidateRepository(getDatabasePool() as unknown as { query<T>(sql: string): Promise<{ rows: T[] }> })).select(), orchestrator).preview({ client });
+      const preview = await new PostCandidatePreviewService(() => new PostCandidateSelectionService(new DatabasePostCandidateRepository(getDatabasePool() as unknown as { query<T>(sql: string): Promise<{ rows: T[] }> })).select(), orchestrator, new PostMediaResolver()).preview({ client });
       sendJson(response, 200, preview);
       return;
     }

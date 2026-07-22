@@ -1,8 +1,9 @@
 import type { XPostClient } from './thread-post-execution.js';
 import { generateReplyTemplate } from './reply-template.js';
 import type { PostHistoryRepository } from './post-history.js';
+import type { PostMedia } from './post-media.js';
 
-export type PersistedThreadPostInput = { productId: number; parentPostText: string; affiliateUrl?: string; dryRun?: boolean; client: XPostClient };
+export type PersistedThreadPostInput = { productId: number; parentPostText: string; affiliateUrl?: string; media?: PostMedia; dryRun?: boolean; client: XPostClient };
 export type PersistedThreadPostResult = { status: 'success' | 'partial_success' | 'failed' | 'dry_run' | 'already_running'; productId: number; parentPostId?: string; replyPostId?: string; parentHistorySaved: boolean; replyHistorySaved: boolean; retryReplyPossible: boolean; startedAt: string; completedAt: string; warnings: string[]; errors: string[] };
 export class ThreadPostPersistenceService {
   private readonly running = new Set<number>();
@@ -16,7 +17,7 @@ export class ThreadPostPersistenceService {
     if (input.dryRun ?? (process.env.DRY_RUN ?? 'true').toLowerCase() !== 'false') return done({ status: 'dry_run', productId: input.productId, parentHistorySaved: false, replyHistorySaved: false, retryReplyPossible: false, warnings: [], errors: [] });
     this.running.add(input.productId);
     try {
-      let parent; try { parent = await input.client.createPost(input.parentPostText); } catch { return done({ status: 'failed', productId: input.productId, parentHistorySaved: false, replyHistorySaved: false, retryReplyPossible: false, warnings: [], errors: ['parent_post_failed'] }); }
+      let parent; try { parent = await input.client.createPost(input.parentPostText, input.media); } catch { return done({ status: 'failed', productId: input.productId, parentHistorySaved: false, replyHistorySaved: false, retryReplyPossible: false, warnings: [], errors: ['parent_post_failed'] }); }
       let parentHistory; try { parentHistory = await this.history.create({ productId: input.productId, xPostId: parent.postId, postType: 'parent', executionStatus: 'pending_reply', postText: input.parentPostText }); } catch { return done({ status: 'partial_success', productId: input.productId, parentPostId: parent.postId, parentHistorySaved: false, replyHistorySaved: false, retryReplyPossible: true, warnings: [], errors: ['parent_history_failed'] }); }
       try { const posted = await input.client.createReply(reply.reply.text, parent.postId); await this.history.create({ productId: input.productId, xPostId: posted.postId, postType: 'reply', executionStatus: 'posted', parentHistoryId: parentHistory.id, postText: reply.reply.text }); await this.history.markReplyCompleted(parentHistory.id); return done({ status: 'success', productId: input.productId, parentPostId: parent.postId, replyPostId: posted.postId, parentHistorySaved: true, replyHistorySaved: true, retryReplyPossible: false, warnings: [], errors: [] }); }
       catch { return done({ status: 'partial_success', productId: input.productId, parentPostId: parent.postId, parentHistorySaved: true, replyHistorySaved: false, retryReplyPossible: true, warnings: [], errors: ['reply_post_failed'] }); }

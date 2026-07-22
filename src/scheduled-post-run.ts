@@ -6,6 +6,7 @@ import { PostCandidatePreviewService } from './post-candidate-preview.js';
 import type { PostExecutionAction, PostExecutionOrchestrator, PostExecutionStatus } from './post-execution-orchestrator.js';
 import type { XPostClient } from './thread-post-execution.js';
 import { isVrTitle } from './vr-product.js';
+import type { PostMediaResolverLike } from './post-media.js';
 
 export type ScheduledPostRunMode = 'preview' | 'execute';
 export type ScheduledPostRunOptions = { mode?: ScheduledPostRunMode; limit?: number; client: XPostClient };
@@ -15,7 +16,7 @@ export type ScheduledPostRunResult = { mode: ScheduledPostRunMode; startedAt: st
 export class ScheduledPostRunService {
   private running = false;
 
-  constructor(private readonly select: () => Promise<CandidateSelectionResult>, private readonly orchestrator: PostExecutionOrchestrator) {}
+  constructor(private readonly select: () => Promise<CandidateSelectionResult>, private readonly orchestrator: PostExecutionOrchestrator, private readonly media: PostMediaResolverLike) {}
 
   async run(options: ScheduledPostRunOptions): Promise<ScheduledPostRunResult> {
     const startedAt = new Date().toISOString();
@@ -54,7 +55,7 @@ export class ScheduledPostRunService {
 
   private async preview(selection: CandidateSelectionResult, limit: number, client: XPostClient, finish: (items: ScheduledPostRunItem[], warnings: string[], alreadyRunning?: boolean) => ScheduledPostRunResult) {
     const selected = selection.selected.slice(0, limit);
-    const preview = await new PostCandidatePreviewService(async () => ({ ...selection, selected }), this.orchestrator).preview({ client });
+    const preview = await new PostCandidatePreviewService(async () => ({ ...selection, selected }), this.orchestrator, this.media).preview({ client });
     const seen = new Set<number>();
     const items = preview.items.filter((item) => !seen.has(item.productId) && Boolean(seen.add(item.productId))).map((item, index) => ({
       productId: item.productId, category: item.category as CandidateCategory, action: item.action as PostExecutionAction, status: item.status as PostExecutionStatus,
@@ -70,8 +71,10 @@ export class ScheduledPostRunService {
       const killer = generateKillerMessages({ analysis, actressNames: candidate.actressNames }).primary;
       const post = generatePostTemplates({ titleAnalysis: analysis, killerMessage: killer, actressNames: candidate.actressNames }).primary;
       if (!post) return { productId: candidate.productId, category: candidate.category, action: 'blocked', status: 'failed', selectedOrder, warnings: [], errors: ['template_unavailable'] };
-      const result = await this.orchestrator.run({ productId: candidate.productId, parentPostText: post.text, affiliateUrl: candidate.affiliateUrl, dryRun: mode === 'preview' ? true : undefined, client });
-      return { productId: candidate.productId, category: candidate.category, action: result.action, status: result.status, selectedOrder, warnings: [...analysis.warnings, ...result.warnings], errors: result.errors };
+      const resolved = await this.media.resolve(candidate.sampleVideoUrl, candidate.thumbnailUrl);
+      if (!resolved.media) return { productId: candidate.productId, category: candidate.category, action: 'blocked', status: 'failed', selectedOrder, warnings: resolved.warnings, errors: ['media_unavailable'] };
+      const result = await this.orchestrator.run({ productId: candidate.productId, parentPostText: post.text, affiliateUrl: candidate.affiliateUrl, media: resolved.media, dryRun: mode === 'preview' ? true : undefined, client });
+      return { productId: candidate.productId, category: candidate.category, action: result.action, status: result.status, selectedOrder, warnings: [...analysis.warnings, ...resolved.warnings, ...result.warnings], errors: result.errors };
     } catch {
       return { productId: candidate.productId, category: candidate.category, action: 'blocked', status: 'failed', selectedOrder, warnings: [], errors: ['scheduled_item_failed'] };
     }

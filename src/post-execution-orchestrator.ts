@@ -2,8 +2,9 @@ import type { PostEligibilityService } from './post-eligibility.js';
 import type { ReplyRetryService } from './reply-retry.js';
 import type { ThreadPostPersistenceService } from './thread-post-persistence.js';
 import type { XPostClient } from './thread-post-execution.js';
+import type { PostMedia } from './post-media.js';
 
-export type PostExecutionInput = { productId: number; parentPostText: string; affiliateUrl?: string; dryRun?: boolean; client: XPostClient };
+export type PostExecutionInput = { productId: number; parentPostText: string; affiliateUrl?: string; media?: PostMedia; dryRun?: boolean; client: XPostClient };
 export type PostExecutionAction = 'new_thread' | 'retry_reply' | 'blocked' | 'dry_run';
 export type PostExecutionStatus = 'success' | 'partial_success' | 'failed' | 'blocked' | 'dry_run' | 'already_running' | 'not_found';
 export type PostExecutionResult = { action: PostExecutionAction; status: PostExecutionStatus; productId: number; eligibilityReason: string; parentPostId?: string; replyPostId?: string; retryReplyPossible: boolean; startedAt: string; completedAt: string; warnings: string[]; errors: string[] };
