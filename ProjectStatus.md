@@ -1,5 +1,15 @@
 # Project Status
 
+## Step 14: 最終投稿本文の必須表記・商品名修正（完了、2026-07-23）
+
+- 最終live-one preflightの自己レビューで、既存テンプレートが角括弧なしの`PR`を使用し、商品名を本文へ含めず、女優訴求が重複していた要件不整合を検出した。実投稿前の必須条件のため、承認ゲートへ進む前に修正する。
+- 共通投稿テンプレートの先頭を厳密な`【PR】`へ変更し、公式metadataの商品名を最大80文字で安全に含める。actress-firstでは女優訴求を一つに整理し、商品名、最大2 hashtagの順で生成する。親本文にURLは含めず、X文字数上限は維持する。
+- `PostExecutionOrchestrator`は先頭行が`【PR】`でない入力を`pr_disclosure_missing`で拒否する。live-one preflightに加え、下位の投稿実行・履歴保存サービスも同じ表記を必須とし、Dashboard・Scheduler・専用1件CLIの全経路へ多重防御で共通適用する。
+- 追加テストは`【PR】`、商品名、長い商品名の80文字省略、表記欠損拒否、live-one本文を含む。`npm run check`、全テスト、`npm run build`、`git diff --check`は成功した。
+- Railway最終deployment `4182c9e0-4c59-407c-bb8c-64ee04068cc5`はSUCCESS。productionの1件preflightはactress候補1件、先頭`【PR】`、対象商品名あり、親本文URLなし、70文字、media=image、自己返信あり、警告は`sample_video_unavailable`のみ、error 0で完了した。確認tokenは生成したがlive実行には使用していない。
+- production previewはselected 2、dry-run 2、blocked 0、failed 0。検証後もproducts 58、favorites 20、product_actresses 8、post_history 0、pending reply 0、live guard 0、scheduler日次guard 0で不変。Dashboardは認証付きHTTP 200、起動ログ正常である。`DRY_RUN=true`、Scheduler disabled、実X投稿・media upload・DB変更はない。
+- 次はGitHub標準フローを完了し、production migration、利用者によるChromeセールcheck-only/persist、実X 1件、Scheduler時刻設定・有効化を一括承認待ちとして停止する。
+
 ## 最終承認ゲート（安全な自動実装完了、2026-07-23）
 
 - Step 12はPR #50（`feat: add manual sale listing sync`、merge commit `be2acc0`）、Step 13はPR #51（`feat: add production posting safety controls`、merge commit `81679d3`）でmainへmerge済み。mainとorigin/mainは一致し、各StepのCompletion Gate・自己レビュー・Railway検証は成功した。

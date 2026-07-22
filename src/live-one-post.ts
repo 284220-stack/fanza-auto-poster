@@ -69,7 +69,7 @@ export class LiveOnePostService {
     const reply = generateReplyTemplate({ affiliateUrl: candidate.affiliateUrl });
     if (!reply.reply) return failed(['affiliate_url_invalid'], [...selectionWarnings, ...reply.warnings]);
     const content = composePostCandidate(candidate);
-    if (!content.post || !content.post.text.startsWith('PR\n') || /https?:\/\//iu.test(content.post.text)) return failed(['parent_post_invalid'], [...selectionWarnings, ...content.analysis.warnings]);
+    if (!content.post || !content.post.text.startsWith('【PR】\n') || /https?:\/\//iu.test(content.post.text)) return failed(['parent_post_invalid'], [...selectionWarnings, ...content.analysis.warnings]);
     const resolved = await this.media.resolve(candidate.sampleVideoUrl, candidate.thumbnailUrl);
     if (!resolved.media) return failed(['media_unavailable'], [...selectionWarnings, ...resolved.warnings]);
     const token = createHash('sha256').update(JSON.stringify({ productId: candidate.productId, category: candidate.category, parentPostText: content.post.text, mediaType: resolved.media.kind })).digest('hex');

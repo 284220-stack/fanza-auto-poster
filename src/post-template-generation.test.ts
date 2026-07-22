@@ -6,11 +6,12 @@ import { analyzeProductTitle } from './product-title-analysis.js';
 function generate(title: string, actressNames?: string[], maxLength?: number) {
   const titleAnalysis = analyzeProductTitle(title);
   const killerMessage = generateKillerMessages({ analysis: titleAnalysis, actressNames }).primary;
-  return generatePostTemplates({ titleAnalysis, killerMessage, actressNames, maxLength });
+  return generatePostTemplates({ titleAnalysis, killerMessage, actressNames, productTitle: title, maxLength });
 }
 
 const sale = generate('【30%OFF】【ポイント還元】架空作品', ['架空女優']);
-assert.match(sale.primary?.text ?? '', /^PR/m);
+assert.match(sale.primary?.text ?? '', /^【PR】/m);
+assert.match(sale.primary?.text ?? '', /架空作品/);
 assert.match(sale.primary?.text ?? '', /30%OFF|ポイント還元/);
 assert.match(sale.primary?.text ?? '', /架空女優出演/);
 assert.ok(!/https?:\/\//.test(sale.primary?.text ?? ''));
@@ -27,4 +28,6 @@ const short = generate('【30%OFF】架空作品', ['架空女優'], 5);
 assert.equal(short.primary, undefined);
 assert.ok(short.warnings.includes('post_too_long'));
 for (const post of [sale.primary, ...sale.alternatives]) assert.doesNotMatch(post?.text ?? '', /最安|絶対|神作|ランキング1位|露骨/u);
+const longTitle = generatePostTemplates({ titleAnalysis: analyzeProductTitle('一般作品'), productTitle: '長'.repeat(120), actressNames: ['架空女優'] });
+assert.match(longTitle.primary?.text ?? '', /長{79}…/u);
 console.log('post template generation: ok');

@@ -10,6 +10,7 @@ export function composePostCandidate(candidate: PostCandidate, preferredStyle?: 
     titleAnalysis: analysis,
     killerMessage: killer,
     actressNames: candidate.actressNames,
+    productTitle: candidate.title,
     campaignName: candidate.campaignName,
     preferredStyle: preferredStyle ?? (candidate.category === 'actress' ? 'actress_first' : candidate.category === 'sale' ? 'sale_first' : 'balanced')
   }).primary;
