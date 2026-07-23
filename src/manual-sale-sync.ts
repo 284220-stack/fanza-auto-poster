@@ -22,6 +22,7 @@ export type ManualSaleSyncResult = ProductSourcePlan & {
   invalidCount: number;
   uniqueProductCount: number;
   saveCandidateCount: number;
+  saleListingCandidateCount: number;
   metadataAvailableCount: number;
   apiNotListedCount: number;
   metadataIdMismatchCount: number;
@@ -68,7 +69,7 @@ export class ManualSaleSyncService {
     counters.invalidMetadataCount += items.length - safeItems.length;
     const plan = schemaReady
       ? await this.store.planSaleSnapshot(contentIds)
-      : { matchedProductCount: 0, currentSaleCount: 0, activateCount: 0, deactivateCount: 0 };
+      : { matchedProductCount: 0, favoriteSaleCandidateCount: 0, currentSaleCount: 0, activateCount: 0, deactivateCount: 0 };
     const base: ManualSaleSyncResult = {
       ...plan,
       checkOnly: !options.persist,
@@ -80,6 +81,7 @@ export class ManualSaleSyncService {
       invalidCount,
       uniqueProductCount: contentIds.length,
       saveCandidateCount: Math.max(0, safeItems.length - plan.matchedProductCount),
+      saleListingCandidateCount: safeItems.length,
       metadataAvailableCount: safeItems.length,
       ...counters,
       createdProductCount: 0,

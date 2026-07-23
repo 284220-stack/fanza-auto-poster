@@ -4,6 +4,7 @@ export const MANUAL_SALE_SOURCE_REFERENCE = 'manual:video.dmm.co.jp/av/list';
 
 export type ProductSourcePlan = {
   matchedProductCount: number;
+  favoriteSaleCandidateCount: number;
   currentSaleCount: number;
   activateCount: number;
   deactivateCount: number;
@@ -70,6 +71,7 @@ export class ProductSourceRepository {
        )
        SELECT
          (SELECT count(*) FROM matched)::int AS "matchedProductCount",
+         (SELECT count(*) FROM matched m JOIN favorites f ON f.product_id = m.id)::int AS "favoriteSaleCandidateCount",
          (SELECT count(*) FROM current_sale)::int AS "currentSaleCount",
          (SELECT count(*) FROM matched m WHERE NOT EXISTS (
            SELECT 1 FROM current_sale c WHERE c.product_id = m.id
@@ -79,7 +81,7 @@ export class ProductSourceRepository {
          ))::int AS "deactivateCount"`,
       [contentIds, sourceReference]
     )).rows[0];
-    return row ?? { matchedProductCount: 0, currentSaleCount: 0, activateCount: 0, deactivateCount: 0 };
+    return row ?? { matchedProductCount: 0, favoriteSaleCandidateCount: 0, currentSaleCount: 0, activateCount: 0, deactivateCount: 0 };
   }
 
   async persistSaleSnapshot(items: readonly ProviderItem[], sourceReference = MANUAL_SALE_SOURCE_REFERENCE): Promise<ProductSourcePersistResult> {
@@ -181,6 +183,7 @@ async function planWith(client: Pick<TransactionClient, 'query'>, contentIds: re
      )
      SELECT
        (SELECT count(*) FROM matched)::int AS "matchedProductCount",
+       (SELECT count(*) FROM matched m JOIN favorites f ON f.product_id = m.id)::int AS "favoriteSaleCandidateCount",
        (SELECT count(*) FROM current_sale)::int AS "currentSaleCount",
        (SELECT count(*) FROM matched m WHERE NOT EXISTS (
          SELECT 1 FROM current_sale c WHERE c.product_id = m.id
@@ -190,5 +193,5 @@ async function planWith(client: Pick<TransactionClient, 'query'>, contentIds: re
        ))::int AS "deactivateCount"`,
     [contentIds, sourceReference]
   )).rows[0];
-  return row ?? { matchedProductCount: 0, currentSaleCount: 0, activateCount: 0, deactivateCount: 0 };
+  return row ?? { matchedProductCount: 0, favoriteSaleCandidateCount: 0, currentSaleCount: 0, activateCount: 0, deactivateCount: 0 };
 }

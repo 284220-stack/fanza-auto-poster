@@ -9,14 +9,23 @@
   <body>
     <main>
       <h1 id="sync-title">お気に入り・セール同期</h1>
-      <p class="notice">FANZAのお気に入りページまたは指定セール一覧で、ボタンを押した時だけ最大20件を確認します。</p>
+      <p class="notice">ボタンを押した時だけ、表示中のFANZAページから最大20件を確認します。</p>
 
       <label for="dashboard-origin">Dashboard origin</label>
       <input id="dashboard-origin" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.up.railway.app">
       <p class="hint">同じブラウザーでDashboardへ先にBasic認証してください。この値は保存しません。</p>
 
-      <button id="check" type="button">対象ページを抽出してcheck-only</button>
-      <button id="persist" class="secondary" type="button" disabled>確認済み内容をpersist</button>
+      <section aria-labelledby="sale-heading">
+        <h2 id="sale-heading">セール同期</h2>
+        <button id="open-sale" class="secondary" type="button">1. FANZAセール一覧を開く</button>
+        <button id="sale-check" type="button">2. セール商品を抽出してcheck-only</button>
+        <button id="sale-persist" class="secondary" type="button" disabled>3. 確認済み内容をpersist</button>
+      </section>
+      <section aria-labelledby="favorite-heading">
+        <h2 id="favorite-heading">お気に入り同期</h2>
+        <button id="favorite-check" type="button">お気に入りを抽出してcheck-only</button>
+        <button id="favorite-persist" class="secondary" type="button" disabled>確認済み内容をpersist</button>
+      </section>
 
       <p id="status" class="status" role="status" aria-live="polite">未実行</p>
       <dl id="extraction-result" class="results" hidden>
@@ -31,12 +40,17 @@
       <dl id="sync-result" class="results" hidden>
         <div><dt>既存商品</dt><dd id="matched-count">0</dd></div>
         <div><dt>保存候補</dt><dd id="save-candidate-count">0</dd></div>
+        <div><dt>sale掲載保存候補</dt><dd id="sale-listing-count">0</dd></div>
+        <div><dt>favorite_sale候補</dt><dd id="favorite-sale-count">0</dd></div>
         <div><dt>不正</dt><dd id="invalid-count">0</dd></div>
         <div><dt>取得不能</dt><dd id="unavailable-count">0</dd></div>
         <div><dt>API未掲載</dt><dd id="api-not-listed-count">0</dd></div>
         <div><dt>ID不一致</dt><dd id="id-mismatch-count">0</dd></div>
         <div><dt>metadata不完全</dt><dd id="invalid-metadata-count">0</dd></div>
         <div><dt>失敗</dt><dd id="failed-count">0</dd></div>
+        <div><dt>persist判定</dt><dd id="persist-state">不可</dd></div>
+        <div><dt>persist理由</dt><dd id="persist-reason">未確認</dd></div>
+        <div><dt>persist後保存</dt><dd id="persisted-count">0</dd></div>
       </dl>
     </main>
     <script src="core.js"></script>

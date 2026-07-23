@@ -4,6 +4,7 @@
   const MAX_URLS = 20;
   const FAVORITE_PAGE_HOSTS = new Set(['www.dmm.co.jp', 'video.dmm.co.jp', 'www.fanza.com']);
   const FAVORITE_PATH_SEGMENTS = new Set(['favorite', 'favorites', 'bookmark', 'bookmarks']);
+  const SALE_PAGE_URL = 'https://video.dmm.co.jp/av/list/';
   const SALE_PAGE_HOST = 'video.dmm.co.jp';
   const SALE_PAGE_PATH = '/av/list/';
 
@@ -82,6 +83,26 @@
       && `${url.pathname.replace(/\/+$/, '')}/` === SALE_PAGE_PATH);
   }
 
+  function validateSalePage(documentValue, pageUrl) {
+    const title = String(documentValue && documentValue.title || '').normalize('NFKC').trim().toLowerCase();
+    const url = parseUrl(pageUrl);
+    if (!isAllowedSalePage(pageUrl)) {
+      if ((url && isOfficialHost(url.hostname) && /(?:age|check_age|age_check|adult_check)/i.test(`${url.pathname}${url.search}`)) || /年齢(?:確認|認証)|age\s*(?:check|verification)/i.test(title)) {
+        throw new SafeSyncError('age_verification_required');
+      }
+      if ((url && isOfficialHost(url.hostname) && /(?:login|signin|auth)/i.test(url.pathname)) || /ログイン|sign\s*in/i.test(title)) {
+        throw new SafeSyncError('login_required');
+      }
+      throw new SafeSyncError('not_sale_page');
+    }
+    if (documentValue && typeof documentValue.readyState === 'string' && documentValue.readyState !== 'complete') {
+      throw new SafeSyncError('page_loading');
+    }
+    if (/年齢(?:確認|認証)|age\s*(?:check|verification)/i.test(title)) throw new SafeSyncError('age_verification_required');
+    if (/ログイン|sign\s*in/i.test(title)) throw new SafeSyncError('login_required');
+    if (/エラー|error|not\s+found|メンテナンス/i.test(title)) throw new SafeSyncError('sale_page_error');
+  }
+
   function isExplicitVrLabel(value) {
     const normalized = String(value || '').normalize('NFKC').trim().toLowerCase();
     return /^(?:【\s*vr\s*】|\[\s*vr\s*\])/.test(normalized);
@@ -107,8 +128,10 @@
   }
 
   function extractSaleUrls(documentValue, pageUrl, limit = MAX_URLS) {
-    if (!isAllowedSalePage(pageUrl)) throw new SafeSyncError('not_sale_page');
-    return extractProductUrls(documentValue, limit);
+    validateSalePage(documentValue, pageUrl);
+    const result = extractProductUrls(documentValue, limit);
+    if (result.urls.length === 0) throw new SafeSyncError('sale_page_not_ready');
+    return result;
   }
 
   function extractProductUrls(documentValue, limit) {
@@ -191,12 +214,14 @@
     return { urls: [...urls], persist: persist === true };
   }
 
-  function createSaleSyncPayload(urls, persist, snapshotComplete, expectedHash) {
+  function createSaleSyncPayload(urls, persist, snapshotComplete, expectedHash, checkToken) {
     const payload = createSyncPayload(urls, persist);
     payload.snapshotComplete = snapshotComplete === true;
     if (persist === true) {
       if (typeof expectedHash !== 'string' || !/^[a-f0-9]{64}$/.test(expectedHash)) throw new SafeSyncError('invalid_snapshot_hash');
+      if (typeof checkToken !== 'string' || !/^[A-Za-z0-9_-]{32,}$/.test(checkToken)) throw new SafeSyncError('invalid_check_token');
       payload.expectedHash = expectedHash;
+      payload.checkToken = checkToken;
     }
     return payload;
   }
@@ -212,6 +237,7 @@
     if (!result || result.checkOnly !== true || result.schemaReady !== true || snapshotComplete !== true) return false;
     if (result.snapshotComplete !== true || result.receivedCount !== expectedCount || result.uniqueProductCount !== expectedCount) return false;
     if (result.metadataAvailableCount !== expectedCount || typeof result.snapshotHash !== 'string' || !/^[a-f0-9]{64}$/.test(result.snapshotHash)) return false;
+    if (typeof result.checkToken !== 'string' || !/^[A-Za-z0-9_-]{32,}$/.test(result.checkToken)) return false;
     const zeroFields = ['invalidCount', 'apiNotListedCount', 'metadataIdMismatchCount', 'invalidMetadataCount', 'vrExcludedCount', 'failedCount'];
     return zeroFields.every((key) => result[key] === 0);
   }
@@ -222,9 +248,26 @@
     return sendSync(fetchValue, origin, '/api/favorites/sync', body, persist, signal);
   }
 
-  async function sendManualSaleSync(fetchValue, originValue, urls, persist, snapshotComplete, expectedHash, signal) {
+  function createSaleSnapshot(pageUrl, extraction) {
+    const url = parseUrl(pageUrl);
+    if (!url || !isAllowedSalePage(url.href)) throw new SafeSyncError('not_sale_page');
+    url.hash = '';
+    return JSON.stringify({
+      pageUrl: url.href,
+      urls: [...extraction.urls],
+      extractedCount: extraction.extractedCount,
+      duplicateCount: extraction.duplicateCount,
+      truncatedCount: extraction.truncatedCount,
+      invalidCandidateCount: extraction.invalidCandidateCount,
+      unsupportedProductTypeCount: extraction.unsupportedProductTypeCount,
+      vrExcludedCount: extraction.vrExcludedCount,
+      urlFormatCounts: extraction.urlFormatCounts
+    });
+  }
+
+  async function sendManualSaleSync(fetchValue, originValue, urls, persist, snapshotComplete, expectedHash, checkToken, signal) {
     const origin = normalizeDashboardOrigin(originValue);
-    const body = createSaleSyncPayload(urls, persist, snapshotComplete, expectedHash);
+    const body = createSaleSyncPayload(urls, persist, snapshotComplete, expectedHash, checkToken);
     return sendSync(fetchValue, origin, '/api/sales/manual-sync', body, persist, signal);
   }
 
@@ -260,10 +303,12 @@
 
   global.FanzaFavoriteSync = Object.freeze({
     MAX_URLS,
+    SALE_PAGE_URL,
     SafeSyncError,
     canPersist,
     canPersistSale,
     createSaleSyncPayload,
+    createSaleSnapshot,
     createSyncPayload,
     classifyProductLink,
     extractContentId,
@@ -274,6 +319,7 @@
     isExplicitVrLabel,
     normalizeDashboardOrigin,
     sendFavoriteSync,
-    sendManualSaleSync
+    sendManualSaleSync,
+    validateSalePage
   });
 })(globalThis);

@@ -1,5 +1,18 @@
 # Project Status
 
+## Step 16: 固定FANZAセール一覧のChrome手動同期（実装完了・実ページcheck-only待ち、2026-07-23）
+
+- セール取得元を`https://video.dmm.co.jp/av/list/`へ固定した。Chrome拡張に「FANZAセール一覧を開く」「セール商品を抽出してcheck-only」「確認済み内容をpersist」を用途別に追加し、open操作は新規tab作成だけで抽出・API送信・persistを行わない。お気に入り同期のcheck-only/persist操作は別ボタンで維持した。
+- セール抽出はHTTPSの`video.dmm.co.jp`かつ`/av/list`または`/av/list/`だけを許可し、query付きの同一一覧を許容する。年齢確認、ログイン、エラー、読込途中、商品link未表示では日本語案内を表示して停止する。年齢確認の自動通過、Cookie・storage・HTML/DOM全文・page title・page URLのserver送信、background/定期巡回は実装していない。
+- 表示中DOMから現行AV形式または旧videoa形式の公式商品URLだけを抽出し、content_id正規化、重複除去、最大20件、未対応商品種別、VR、上限超過を理由別集計する。未対応floorをAVへ変換せず、価格差をセール根拠にしない。
+- check-only成功時だけserverが10分有効・一回限りの暗号学的tokenを発行する。popup memoryにはserver集合hashとclient snapshotだけを保持し、persist直前に同じtabを再抽出してpage URL、URL集合、抽出・重複・上限・形式・未対応・VR・不正件数の完全一致を確認する。tokenはpersist要求時に原子的に消費し、再送、期限切れ、page変更、API失敗後は再check-onlyを必須とする。token用DB変更・migrationはない。
+- UIへ抽出、重複、上限超過、現行/旧形式、未対応、VR、既存、新規候補、sale掲載保存候補、favorite_sale候補、API未掲載、ID不一致、metadata不完全、失敗、persist可否理由、persist後保存件数を追加した。sale掲載保存候補は全metadata確認済み件数、favorite_sale候補は既存favoritesとのDB上の交差件数である。
+- production読取り確認で`product_sources`はfavorite 20、actress 8、sale 0と正常だったが、商品管理APIの取得経路表示が全58件で空になる既存不具合を検出した。原因はPostgreSQL bigintのproducts.idが文字列、product_sources側がnumberでMap照合されていたためで、products Repositoryの共通fieldsを`id::int AS id`へ最小修正した。修正後APIはfavorite取得経路20商品、actress取得経路8商品、sale 0商品を正しく表示した。DB変更はない。
+- 単体・拡張・API・お気に入り回帰を含む全テスト、`npm run check`、`npm test`、`npm run build`、`git diff --check`、拡張JS構文確認は成功した。一回限りtokenの発行・persist成功・再利用拒否・期限切れ拒否・unsafe時未発行、page状態判定、snapshot変更拒否、固定URL open操作、VR/形式/最大20件、お気に入り回帰を確認した。
+- Railway production deployment `7df6af8e-5465-4385-a5bf-3ea8b9526db0`はSUCCESS。products 58、favorites 20、product_actresses 8、product_sources 28（favorite 20、actress 8、sale 0）、post_history 0、source重複0、source/favorite/product_actresses孤児0、明確なVRタイトル0を維持した。Dashboard HTTP 200、runtime error 0である。
+- productionのScheduler dry-runはselected 2、dry-run 2、blocked 0、failed 0、actress 2、sale 0、favorite_sale 0。live preflightはactress 1件限定、ready、media=image fallback、自己返信あり、warning 1、error 0。`DRY_RUN=true`、Scheduler disabled・時刻未設定、実X投稿0、media upload 0、セールpersist 0を維持した。
+- 次の再開地点は、利用者がChrome拡張を再読込みし、拡張から固定セール一覧を開き、必要なら年齢確認を手動完了してから「セール商品を抽出してcheck-only」を一回実行し、結果画面を共有すること。セールpersist、`DRY_RUN=false`、実X投稿/media upload、Scheduler有効化は引き続き未承認である。過去に表示された可能性がある`DMM_AFFILIATE_ID`は実投稿前のローテーション判断対象として維持する。
+
 ## Step 15: product_sources production migration・論理backup（完了、2026-07-23）
 
 - 正しいRailway対象はproject `victorious-wisdom`、environment `production`、service `Postgres`、volume `postgres-volume`、application `fanza-auto-poster`である。Railway Web UIではBackups/PITRがPro Plan限定、既存backup 0件と確認された。権限不足ではなくplan制限であり、backup API・CLI・Web UIの再試行やplan変更は行わない。

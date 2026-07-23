@@ -68,6 +68,8 @@ FANZAの商品を取得・選定し、利用可能なサンプル動画付きの
 ## 手動セール掲載同期と取得経路
 
 - セール掲載の取得起点は、利用者がHTTPSの`https://video.dmm.co.jp/av/list/`上でChrome拡張のボタンを押す明示操作だけとする。サーバー巡回、background、定期実行、年齢認証・robots.txt回避、Cookie・localStorage・HTML全文の送信を禁止する。
+- セール一覧URLは`https://video.dmm.co.jp/av/list/`へ固定し、利用者入力を持たない。拡張は「FANZAセール一覧を開く」「セール商品を抽出してcheck-only」「確認済み内容をpersist」を分離し、URLを開くだけでは抽出・送信・保存しない。対象は同hostの`/av/list`または`/av/list/`と公式query付き形式だけで、年齢確認・ログイン・エラー・読込途中では日本語案内を表示して停止する。
+- セールpersist直前に同じtabを再抽出し、check-only時のpage URL、正規化商品集合、抽出件数・重複・上限超過・URL形式・未対応・VR・不正件数が完全一致することを必須とする。serverは安全なcheck-onlyに対して短時間・一回限りのcheck tokenを発行し、同じ結果の複数persist、失敗後の自動再送、token再利用を拒否する。check-only token管理はDBを変更しない。
 - 同期対象は明確なvideoa商品URLをcontent_id単位で重複除去した最大20件である。上限超過または不正リンクがある集合は完全スナップショットではないためpersistしない。
 - check-onlyで全content_idの公式metadata、affiliate URL、非VR、集合hash、取得経路schemaを確認する。persistは同じ集合hashが一致し、全件成功した場合だけ単一transactionで実行する。部分persistを禁止する。
 - ページ掲載そのものをセール根拠とし、価格不明を許容する。価格差、商品名、既存`is_sale`だけからセール掲載を推測しない。旧価格差同期のDashboard経路は停止する。

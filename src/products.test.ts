@@ -9,6 +9,7 @@ const db: Queryable = { async query<T>(sql: string, values?: readonly unknown[])
 const repo = new ProductRepository(db);
 await repo.list(); await repo.find(1); await repo.findByFanzaProductId('abc'); await repo.findByProductUrl('https://example.test/product'); assert.equal(await repo.exists('abc'), true); await repo.create({ ...input(), affiliateUrl: null, sampleVideoUrl: null, thumbnailUrl: null, releaseDate: null, price: 1000, salePrice: 800, isSale: true, status: 'available' }); await repo.update(1, { ...input(), affiliateUrl: null, sampleVideoUrl: null, thumbnailUrl: null, releaseDate: null, price: 1000, salePrice: 800, isSale: true, status: 'available' }); await repo.updateSale(1, 800, true); await repo.updateSampleVideo(1, 'https://example.test/video'); await repo.remove(1);
 assert.ok(calls.every((call) => !/\$\{/.test(call.sql))); assert.ok(calls.filter((call) => call.values).length >= 9);
+assert.ok(calls.filter((call) => call.sql.includes('AS "fanzaProductId"')).every((call) => call.sql.includes('id::int AS id')));
 const service = new ProductService(repo);
 const created = await service.create(input()); assert.equal(created.id, 1); assert.equal(calls.at(-1)?.values?.[0], 'abc');
 await assert.rejects(service.create({ ...input(), title: ' ' }), ProductError);

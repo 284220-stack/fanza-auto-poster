@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "FANZA お気に入り同期",
-  "version": "0.1.0",
-  "description": "利用者の明示操作でFANZAお気に入り商品を安全にcheck-only同期します。",
+  "name": "FANZA お気に入り・セール同期",
+  "version": "0.2.0",
+  "description": "利用者の明示操作でFANZAお気に入りと固定セール一覧を安全に同期します。",
   "permissions": [
     "activeTab",
     "scripting"
@@ -13,7 +13,7 @@
     "http://127.0.0.1/*"
   ],
   "action": {
-    "default_title": "FANZA お気に入り同期",
+    "default_title": "FANZA お気に入り・セール同期",
     "default_popup": "popup.html"
   }
 }
