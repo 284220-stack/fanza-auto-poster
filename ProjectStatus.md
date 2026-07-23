@@ -1,5 +1,19 @@
 # Project Status
 
+## Step 15: product_sources production migration・論理backup（完了、2026-07-23）
+
+- 正しいRailway対象はproject `victorious-wisdom`、environment `production`、service `Postgres`、volume `postgres-volume`、application `fanza-auto-poster`である。Railway Web UIではBackups/PITRがPro Plan限定、既存backup 0件と確認された。権限不足ではなくplan制限であり、backup API・CLI・Web UIの再試行やplan変更は行わない。
+- migration `1763000000000_product_sources`は2026-07-23 08:53:01 JSTに1回だけ適用済み。適用前はproducts 58、favorites 20、product_actresses 8、product_sources未作成、適用後はproducts 58、favorites 20、product_actresses 8、product_sources 28（favorite 20、actress 8、sale 0）である。重複・孤児・favorite/actress backfill欠損は0、unique/FK/check/indexは設計どおりで、rollback・再実行・手動SQLは行っていない。
+- 代替論理backupの事前確認で、ローカル環境には`pg_dump`と`pg_restore`が存在しないことを確認した。指示どおり追加インストールは行っていない。Railway Postgres serviceにはPostgreSQL 18.4の両ツールがあり、service filesystemからローカルへdownloadする公式CLI経路も確認した。
+- remote toolのバージョンとserver互換性を一度に確認する目的でRailway SSHの複合`sh -lc`コマンドを実行したが、引用符・引数が意図どおり保持されず、`pg_dump --version`相当が引数なしのplain dumpとして1回実行された。処理は読み取り専用でDB変更はなく、migration・persist・同期・投稿とは同時実行していない。ただしdumpはファイルへ保存されず標準出力へ送られ、商品データとaffiliate URL等が一時的な実行出力へ表示された。値はProjectStatus、Git、PRへ記録せず、ここでも再掲しない。
+- 前回のplain dump標準出力は保存・復元可能なbackupではないと利用者が判断し、正式なcustom format論理backupを追加で1回実行する承認を受けた。無害な直接引数テストとremote/localパス非存在を確認後、PostgreSQL 18.4の`pg_dump`へ`--format=custom --no-owner --no-acl --file=...`を直接渡し、2026-07-23 21:52:54 JSTに終了コード0で1回だけ作成した。複合shell、npm script、stdout、pipe、redirectは使用していない。
+- 正式backupはGit外の`C:\codex-backups\fanza-auto-poster\fanza-auto-poster-production-20260723-215138.dump`へRailway公式service file downloadで保存した。38,430 bytesでremote/localサイズが一致し、先頭magicは`PGDMP`。PostgreSQL 18.4の`pg_restore --list`でcustom archiveを読めること、products、favorites、product_actresses、product_sources、pgmigrationsのtable/data 5/5、product_sourcesのunique・FK・追加indexを確認した。restoreは実行していない。agent権限制限でremote一時ファイル削除は拒否されたため迂回削除せず残置し、正式backupはローカル側のみを復元地点として扱う。
+- backup後のproduction DBはproducts 58、favorites 20、product_actresses 8、product_sources 28（favorite 20、actress 8、sale 0）、post_history 0、pending reply 0、live guard 0、Scheduler guard 0、明確なVR商品0。source重複・source/favorite/product_actresses孤児・favorite/actress backfill欠損は全て0、migration `1763000000000_product_sources`の履歴は1件、unique/FK/check/indexは正常である。
+- production Scheduler dry-run/previewはselected 2、dry-run 2、blocked 0、failed 0、actress 2、sale 0、favorite_sale 0、alreadyRunning false。live preflightはactress 1件限定、ready、親本文70文字、media=image fallback、自己返信あり、warning 1、error 0。X API・media upload・DB guard予約は実行していない。
+- Dashboard、status API、products API、preview APIは全てHTTP 200。商品58件、source schema ready、preview selected/previewed 2、blocked/failed 0を確認した。Railwayはapplication/PostgresともOnline、HTTP 5xx 0。backup直後に既存Yahoo IMAP workerの一時的な`NoConnection`が1回（11 log lines）発生したが、その後のruntime errorは0で、migration・backup・Dashboard起因のerrorはない。
+- 最終差分で`npm run check`、全テスト、`npm run build`、`git diff --check`は全て成功した。`DRY_RUN=true`、Scheduler disabled・時刻未設定、実X投稿0、media upload 0。migration再実行、rollback、手動SQL変更、backfill再実行、productionデータ削除、セールpersist、資格情報rotationは行っていない。前回出力に含まれた可能性のある`DMM_AFFILIATE_ID`は実投稿前のローテーション判断対象として維持する。
+- 次の利用者操作はChrome拡張を再読み込みし、FANZAセール一覧ページでcheck-onlyを1回実行して結果スクリーンショットを共有すること。persistは押さない。セールpersist、`DRY_RUN=false`、実X投稿/media upload、Scheduler作成・有効化は引き続き未承認である。
+
 ## Step 14: 最終投稿本文の必須表記・商品名修正（完了、2026-07-23）
 
 - 最終live-one preflightの自己レビューで、既存テンプレートが角括弧なしの`PR`を使用し、商品名を本文へ含めず、女優訴求が重複していた要件不整合を検出した。実投稿前の必須条件のため、承認ゲートへ進む前に修正する。

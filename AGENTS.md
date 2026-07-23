@@ -153,6 +153,7 @@ Codexは以下を行わない。
 - サーバー側HTML巡回、background・定期巡回、年齢認証やrobots.txtの回避、FANZA Cookie・localStorage・HTML全文の送信を禁止する。
 - 手動セールpersistは、上限超過0・不正0・metadata失敗0・VR0・完全集合・check-only集合hash一致・migration適用済みをすべて確認し、単一transactionで一回だけ実行する。部分persistしない。
 - production migrationは、dry-run、SQLレビュー、既存件数、rollback、バックアップまたは復元手段を確認した後、ユーザーの明示承認を得て一回だけ適用する。
+- Railway SSHでは、末尾引数や引用符を含む複合コマンドがリモートプロセスへ意図どおり渡らない場合がある。migration、backup、persistなど安全性に関わる処理では`sh -lc`等を介した複合コマンドを使用せず、実行前に無害な直接コマンドで引数伝達を検証する。引数欠落がデータ変更または機密出力につながり得るコマンドは、検証済みの単一目的scriptまたは直接引数方式以外で実行しない。
 
 ## VR作品の除外（恒久ルール）
 
