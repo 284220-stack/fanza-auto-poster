@@ -67,7 +67,7 @@ settings（独立したシステム設定）
 - 実行対象はHTTPSのFANZA/DMM公式hostかつpathnameに明確な`favorite`または`bookmark` segmentを持つページに限定する。同期対象商品リンクは現行`video.dmm.co.jp/av/content`と旧`www.dmm.co.jp/digital/videoa/.../detail`だけを許可し、他floorをAV商品として推測しない。明確なcontent_idを安全な標準URLへ正規化、重複除去して最大20件に制限する。
 - 抽出結果は現行AV形式、旧videoa形式、未対応公式商品種別、ID不正をURL全文なしの件数で表示する。重複は同期可能なcontent_id単位、上限超過はVR・未対応種別を除いた同期可能な一意商品数から算出する。
 - DOMからはリンクURLと、明確な先頭VR表記を判定するための表示テキストだけを一時的に参照する。送信bodyは`urls`と`persist`だけで、FANZAのCookie、認証情報、localStorage、ページHTML、商品名を含めない。metadata取得後もサーバー側の共通VR判定を通す。
-- Dashboard originはpopupへ都度入力し、拡張内へ保存しない。Railwayの`*.up.railway.app` HTTPS（ローカル確認時だけlocalhost/127.0.0.1のHTTP）に限定し、実行時にそのoriginだけのhost permissionを要求する。Basic認証値は埋め込み・読取りを行わず、同じブラウザーで事前認証済みのDashboard originへ送信する。401時は安全に停止する。
+- Dashboard originは`https://fanza-auto-poster-production.up.railway.app`定数をHTML初期値とpopup起動時の両方で設定し、通常操作では読み取り専用とする。storageへ保存せず、未保存状態と拡張再読み込み後も正式URLを使用する。明示的な開発用詳細設定を開いた場合だけ、そのpopup内でRailwayの`*.up.railway.app` HTTPSまたはlocalhost/127.0.0.1のHTTPへ一時変更できる。実行時に対象originだけのhost permissionを要求し、Basic認証値は埋め込み・読取りを行わない。401時は安全に停止する。
 - 最初の送信は常にcheck-onlyである。入力、metadata、VR、商品保存予定を含む安全性条件がすべて成功した場合だけpersistボタンを有効化し、確認dialog後の一回だけ`persist=true`を送る。popupを閉じると承認状態は失われる。
 
 ## 手動セール掲載Providerと取得経路

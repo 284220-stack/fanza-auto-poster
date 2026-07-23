@@ -12,8 +12,13 @@
       <p class="notice">ボタンを押した時だけ、表示中のFANZAページから最大20件を確認します。</p>
 
       <label for="dashboard-origin">Dashboard origin</label>
-      <input id="dashboard-origin" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.up.railway.app">
-      <p class="hint">同じブラウザーでDashboardへ先にBasic認証してください。この値は保存しません。</p>
+      <input id="dashboard-origin" type="url" inputmode="url" autocomplete="off" spellcheck="false" value="https://fanza-auto-poster-production.up.railway.app" readonly aria-readonly="true">
+      <p class="hint">正式なproduction Dashboardです。同じブラウザーで先にBasic認証してください。</p>
+      <details class="advanced-settings">
+        <summary>開発用詳細設定</summary>
+        <p class="hint">ローカル開発など、production以外へ接続する場合だけ一時的に編集を有効にします。この値は保存されず、拡張の再読み込み時は正式URLへ戻ります。</p>
+        <button id="enable-developer-origin" class="secondary" type="button" aria-pressed="false">開発用originの編集を有効にする</button>
+      </details>
 
       <section aria-labelledby="sale-heading">
         <h2 id="sale-heading">セール同期</h2>

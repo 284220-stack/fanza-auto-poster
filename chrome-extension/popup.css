@@ -30,6 +30,16 @@ h2 {
   line-height: 1.5;
 }
 
+.advanced-settings {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.advanced-settings summary {
+  color: #5f6368;
+  cursor: pointer;
+}
+
 .notice,
 .hint {
   color: #5f6368;

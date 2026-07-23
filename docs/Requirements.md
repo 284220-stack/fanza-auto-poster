@@ -63,7 +63,7 @@ FANZAの商品を取得・選定し、利用可能なサンプル動画付きの
 - Node.js常駐プロセスが定期実行し、X APIはOAuth 1.0a、ホスティングはRailway、ソース管理はGitHubとする。
 - 既存のBasic認証、テスト基盤、Railway設定を再利用候補とする。
 - 認証情報は環境変数等の安全な設定で扱い、コード、ログ、クライアントへ出力しない。
-- Chrome拡張へAPIキーやBasic認証値を埋め込まない。Dashboard originは実行時だけ利用者が指定し、保存しない。拡張はブラウザーで事前に認証済みのDashboard originへだけ同期要求を送り、401時は認証情報を収集せず停止する。
+- Chrome拡張へAPIキーやBasic認証値を埋め込まない。通常運用のDashboard originは`https://fanza-auto-poster-production.up.railway.app`へ固定し、未保存状態と拡張再読み込み後も読み取り専用で表示する。ローカル開発時だけ明示的な詳細設定で一時編集を許可し、変更値を保存しない。拡張はブラウザーで事前に認証済みのDashboard originへだけ同期要求を送り、401時は認証情報を収集せず停止する。
 
 ## 手動セール掲載同期と取得経路
 

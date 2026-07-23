@@ -1,5 +1,14 @@
 # Project Status
 
+## Step 17: Chrome拡張Dashboard originのproduction固定（完了、2026-07-23）
+
+- Chrome拡張の通常運用Dashboard originを正式URL `https://fanza-auto-poster-production.up.railway.app`へ統一し、旧サンプルURLをコード、HTML、README、設計・要件・運用文書、テストから完全に削除した。
+- 正式URLはHTML初期値とpopup初期化時の共通定数の両方で設定するため、originを保存していない未保存状態と拡張再読み込み後のどちらでも利用できる。通常の入力欄は読み取り専用で、既に正式URLを利用していた運用も同じ値のまま維持される。storage権限や認証情報の保存は追加していない。
+- production以外の接続が必要なローカル開発時だけ、明示的な「開発用詳細設定」で現在のpopup内の一時編集を有効化できる。許可先は既存どおりRailway HTTPSまたはlocalhost/127.0.0.1に限定し、変更値は保存せず、編集終了または再読み込みで正式URLへ戻る。同期処理中は詳細設定ボタンも無効化する。
+- 拡張の単体・安全性・お気に入り同期・手動セール同期を含む全テスト、`npm run check`、`npm test`、`npm run build`、`git diff --check`、旧URLの全体検索0件が成功した。既存セールcheck-onlyは中断・再実行せず、セールpersistも実行していない。DB変更、migration、商品・favorite・source変更はない。
+- Railway production deployment `e1d86278-4b1e-4c5e-b873-6ef93a5169c1`はSUCCESS。認証付きDashboardはHTTP 200、deploymentのerror log 0、`DRY_RUN=true`、Scheduler disabled・時刻未設定を維持した。実X投稿、media upload、セール同期・persistは実行していない。
+- 次の利用者操作は`chrome://extensions/`でFANZA同期拡張を再読み込みし、popupのDashboard originが正式URLかつ読み取り専用で表示されることを確認すること。再読み込みで以前のpopup内check-only tokenは保持されないため、persistは押さず、セールcheck-onlyの次回実行は別途運用判断後に行う。
+
 ## Step 16: 固定FANZAセール一覧のChrome手動同期（実装完了・実ページcheck-only待ち、2026-07-23）
 
 - セール取得元を`https://video.dmm.co.jp/av/list/`へ固定した。Chrome拡張に「FANZAセール一覧を開く」「セール商品を抽出してcheck-only」「確認済み内容をpersist」を用途別に追加し、open操作は新規tab作成だけで抽出・API送信・persistを行わない。お気に入り同期のcheck-only/persist操作は別ボタンで維持した。
