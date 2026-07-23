@@ -38,7 +38,7 @@ export class ProductError extends Error {
   }
 }
 
-const fields = 'id, fanza_product_id AS "fanzaProductId", title, product_url AS "productUrl", affiliate_url AS "affiliateUrl", sample_video_url AS "sampleVideoUrl", thumbnail_url AS "thumbnailUrl", price::text AS price, sale_price::text AS "salePrice", is_sale AS "isSale", release_date::text AS "releaseDate", status, created_at AS "createdAt", updated_at AS "updatedAt"';
+const fields = 'id::int AS id, fanza_product_id AS "fanzaProductId", title, product_url AS "productUrl", affiliate_url AS "affiliateUrl", sample_video_url AS "sampleVideoUrl", thumbnail_url AS "thumbnailUrl", price::text AS price, sale_price::text AS "salePrice", is_sale AS "isSale", release_date::text AS "releaseDate", status, created_at AS "createdAt", updated_at AS "updatedAt"';
 
 export class ProductRepository {
   constructor(private readonly db: Queryable) {}

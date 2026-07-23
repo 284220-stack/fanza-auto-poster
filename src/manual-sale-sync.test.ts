@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import type { ProductMetadataLookupResult } from './actress-product-provider.js';
-import { handleManualSaleSyncApiRequest } from './manual-sale-sync-api.js';
+import { createManualSaleCheckTokenRegistry, handleManualSaleSyncApiRequest } from './manual-sale-sync-api.js';
 import { MAX_MANUAL_SALE_PRODUCTS, ManualSaleSyncError, ManualSaleSyncService, type ManualSaleSyncStore } from './manual-sale-sync.js';
 import type { ProviderItem } from './providers.js';
 
@@ -17,8 +17,8 @@ let persistedItems: readonly ProviderItem[] = [];
 let schemaReady = true;
 const store: ManualSaleSyncStore = {
   async schemaReady() { return schemaReady; },
-  async planSaleSnapshot(ids) { return { matchedProductCount: ids.includes('known') ? 1 : 0, currentSaleCount: 1, activateCount: ids.includes('new') ? 1 : 0, deactivateCount: 0 }; },
-  async persistSaleSnapshot(items) { persisted += 1; persistedItems = items; return { matchedProductCount: 1, currentSaleCount: 1, activateCount: 1, deactivateCount: 0, createdProductCount: 1, updatedProductCount: 1 }; }
+  async planSaleSnapshot(ids) { return { matchedProductCount: ids.includes('known') ? 1 : 0, favoriteSaleCandidateCount: ids.includes('known') ? 1 : 0, currentSaleCount: 1, activateCount: ids.includes('new') ? 1 : 0, deactivateCount: 0 }; },
+  async persistSaleSnapshot(items) { persisted += 1; persistedItems = items; return { matchedProductCount: 1, favoriteSaleCandidateCount: 1, currentSaleCount: 1, activateCount: 1, deactivateCount: 0, createdProductCount: 1, updatedProductCount: 1 }; }
 };
 const metadata = {
   async lookup(id: string): Promise<ProductMetadataLookupResult> {
@@ -39,6 +39,8 @@ assert.equal(checked.receivedCount, 3);
 assert.equal(checked.uniqueProductCount, 2);
 assert.equal(checked.metadataAvailableCount, 2);
 assert.equal(checked.saveCandidateCount, 1);
+assert.equal(checked.saleListingCandidateCount, 2);
+assert.equal(checked.favoriteSaleCandidateCount, 1);
 assert.equal(checked.snapshotComplete, true);
 assert.match(checked.snapshotHash, /^[a-f0-9]{64}$/);
 assert.equal(persisted, 0);
@@ -69,11 +71,36 @@ await assert.rejects(service.sync(Array.from({ length: MAX_MANUAL_SALE_PRODUCTS 
 const invalidUrl = await service.sync(['https://example.test/product'], { snapshotComplete: true });
 assert.equal(invalidUrl.invalidCount, 1);
 
-const apiCheck = await handleManualSaleSyncApiRequest('POST', '/api/sales/manual-sync', { urls: [url('known')], snapshotComplete: true }, () => service);
+let now = 1000;
+const tokens = createManualSaleCheckTokenRegistry({ now: () => now, ttlMs: 100 });
+const apiCheck = await handleManualSaleSyncApiRequest('POST', '/api/sales/manual-sync', { urls: [url('known')], snapshotComplete: true }, () => service, tokens);
 assert.equal(apiCheck?.status, 200);
+const apiCheckResult = apiCheck?.body.result as ManualSaleSyncResultWithToken;
+assert.match(apiCheckResult.checkToken ?? '', /^[A-Za-z0-9_-]{32,}$/);
+const apiPersist = await handleManualSaleSyncApiRequest('POST', '/api/sales/manual-sync', {
+  urls: [url('known')], persist: true, snapshotComplete: true,
+  expectedHash: apiCheckResult.snapshotHash, checkToken: apiCheckResult.checkToken
+}, () => service, tokens);
+assert.equal(apiPersist?.status, 200);
+assert.equal((await handleManualSaleSyncApiRequest('POST', '/api/sales/manual-sync', {
+  urls: [url('known')], persist: true, snapshotComplete: true,
+  expectedHash: apiCheckResult.snapshotHash, checkToken: apiCheckResult.checkToken
+}, () => service, tokens))?.status, 409);
+const expiringCheck = await handleManualSaleSyncApiRequest('POST', '/api/sales/manual-sync', { urls: [url('known')], snapshotComplete: true }, () => service, tokens);
+const expiringResult = expiringCheck?.body.result as ManualSaleSyncResultWithToken;
+now += 101;
+assert.equal((await handleManualSaleSyncApiRequest('POST', '/api/sales/manual-sync', {
+  urls: [url('known')], persist: true, snapshotComplete: true,
+  expectedHash: expiringResult.snapshotHash, checkToken: expiringResult.checkToken
+}, () => service, tokens))?.status, 409);
+const unsafeApiCheck = await handleManualSaleSyncApiRequest('POST', '/api/sales/manual-sync', { urls: [url('missing')], snapshotComplete: true }, () => service, tokens);
+assert.equal((unsafeApiCheck?.body.result as ManualSaleSyncResultWithToken).checkToken, undefined);
 assert.equal((await handleManualSaleSyncApiRequest('GET', '/api/sales/manual-sync', {}, () => service))?.status, 400);
 assert.equal((await handleManualSaleSyncApiRequest('POST', '/api/sales/manual-sync', { urls: [1] }, () => service))?.status, 400);
 assert.equal((await handleManualSaleSyncApiRequest('POST', '/api/sales/manual-sync', { urls: [], secret: true }, () => service))?.status, 400);
+assert.equal((await handleManualSaleSyncApiRequest('POST', '/api/sales/manual-sync', { urls: [url('known')], checkToken: 'not-allowed-on-check' }, () => service))?.status, 400);
+
+type ManualSaleSyncResultWithToken = Awaited<ReturnType<ManualSaleSyncService['sync']>> & { checkToken?: string };
 
 const migration = await readFile(new URL('../migrations/1763000000000_product_sources.ts', import.meta.url), 'utf8');
 assert.ok(migration.includes('product_sources_unique_observation'));

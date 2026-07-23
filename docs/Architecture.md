@@ -2,11 +2,11 @@
 
 ## 構成
 
-単一のNode.jsアプリ内で投稿エンジンと分析エンジンをモジュール分離する。データの正本はPostgreSQLとし、Chrome拡張は利用者のブラウザー内でのみFANZAお気に入り画面を扱う。
+単一のNode.jsアプリ内で投稿エンジンと分析エンジンをモジュール分離する。データの正本はPostgreSQLとし、Chrome拡張は利用者のブラウザー内でのみFANZAお気に入り画面と固定セール一覧を扱う。
 
 ```text
 FANZA / DMM（許可された商品情報） ─┐
-Chrome拡張（お気に入り画面） ───────┼─> Node.js / TypeScript ─> PostgreSQL
+Chrome拡張（お気に入り・固定セール一覧） ┼─> Node.js / TypeScript ─> PostgreSQL
 管理画面（HTML/CSS/JS） ─────────────┤      ├─ 投稿エンジン ─> X API (OAuth 1.0a)
 Railway（常駐プロセス） ──────────────┘      └─ 分析エンジン
 ```
@@ -14,7 +14,7 @@ Railway（常駐プロセス） ──────────────┘   
 | 要素 | 責務 |
 | --- | --- |
 | 管理画面 | 指定女優、設定、履歴、実績、同期・失敗結果の管理 |
-| Chrome拡張 | お気に入りを一括取得して同期APIへ送信。FANZA認証情報は送信・保存しない |
+| Chrome拡張 | お気に入りまたは固定セール一覧を利用者操作時だけ抽出して用途別同期APIへ送信。FANZA認証情報は送信・保存しない |
 | 取得アダプター | 商品ID、販売状態、価格、セール・新作、動画、アフィリエイトURLの正規化 |
 | 投稿エンジン | 候補選定、必須条件、枠、文面、親投稿、返信、結果記録 |
 | 分析エンジン | 投稿・除外・失敗・日次実績を集計 |
@@ -72,7 +72,9 @@ settings（独立したシステム設定）
 
 ## 手動セール掲載Providerと取得経路
 
-- Chrome popupはお気に入りページと指定セール一覧をURLで排他的に判定し、共通の商品リンク分類・VR補助判定・20件上限を利用する。セールは`POST /api/sales/manual-sync`、お気に入りは`POST /api/favorites/sync`へ送り、用途を混同しない。
+- Chrome popupはお気に入りページと固定セール一覧を用途別操作で判定し、共通の商品リンク分類・VR補助判定・20件上限を利用する。セールは`POST /api/sales/manual-sync`、お気に入りは`POST /api/favorites/sync`へ送り、用途を混同しない。
+- セールURLは拡張内の`https://video.dmm.co.jp/av/list/`定数へ固定し、入力欄を持たない。open操作はtab作成だけ、check-onlyは対象host/path・document readyState・年齢確認/ログイン/エラー表示を確認してから表示中DOMの公式AV商品linkだけを抽出する。page URL、document title、DOM、Cookie、storageはAPI payloadへ含めない。
+- check-only成功時は抽出集合・件数のclient snapshotと、serverの集合hash・一回限りcheck tokenをpopup memoryだけに保持する。persist直前に同じtabを再抽出してclient snapshotを照合し、serverはtokenを原子的に一度だけ消費して集合hashを再検証する。popup終了、page変更、再送、API失敗後は再check-onlyを必須とし、部分persistしない。
 - `ManualSaleSyncService`はURL検証、content_id重複除去、公式metadata補完、理由別件数、完全集合、集合hashを検証する。check-onlyはDBを変更しない。persistは`ProductSourceRepository`の単一transactionで商品upsert、旧掲載のinactive化、現掲載のupsert、`products.is_sale`互換表示更新を行う。
 - `product_sources`は商品と取得観測の多対多テーブルで、`(product_id, source_type, source_reference)`をuniqueとする。migrationは既存favoritesとproduct_actressesを履歴保持付きでbackfillし、旧`products.is_sale`をセール根拠としてbackfillしない。
 - 候補Repositoryはschema適用後、activeなsale観測を`isSale`へ写像する。schema未適用時は価格由来の`products.is_sale`へfallbackせず、sale/favorite_saleを0件として安全停止する。

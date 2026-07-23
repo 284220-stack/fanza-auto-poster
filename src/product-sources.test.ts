@@ -18,13 +18,13 @@ const pool: TransactionPool = {
     poolQueries.push({ sql, values });
     if (sql.includes('to_regclass')) return { rows: [{ ready: true }] as T[] };
     if (sql.includes('GROUP BY product_id')) return { rows: [{ productId: 10, sources: ['favorite', 'sale'], currentSale: true, firstSeenAt: '2026-01-01', lastSeenAt: '2026-01-02' }] as T[] };
-    return { rows: [{ matchedProductCount: 1, currentSaleCount: 2, activateCount: 0, deactivateCount: 1 }] as T[] };
+    return { rows: [{ matchedProductCount: 1, favoriteSaleCandidateCount: 1, currentSaleCount: 2, activateCount: 0, deactivateCount: 1 }] as T[] };
   },
   async connect() {
     return {
       async query<T>(sql: string, values?: readonly unknown[]) {
         transactionQueries.push({ sql, values });
-        if (sql.includes('WITH desired')) return { rows: [{ matchedProductCount: 1, currentSaleCount: 2, activateCount: 0, deactivateCount: 1 }] as T[] };
+        if (sql.includes('WITH desired')) return { rows: [{ matchedProductCount: 1, favoriteSaleCandidateCount: 1, currentSaleCount: 2, activateCount: 0, deactivateCount: 1 }] as T[] };
         if (sql.includes('INSERT INTO products')) return { rows: [{ id: nextProductId++, created: values?.[0] === 'new' }] as T[] };
         if (sql.includes('UPDATE product_sources')) return { rows: [{ productId: 99 }] as T[] };
         return { rows: [] as T[] };
@@ -37,7 +37,8 @@ const pool: TransactionPool = {
 const repository = new ProductSourceRepository(pool);
 assert.equal(await repository.schemaReady(), true);
 assert.deepEqual(await repository.listSummaries(), [{ productId: 10, sources: ['favorite', 'sale'], currentSale: true, firstSeenAt: '2026-01-01', lastSeenAt: '2026-01-02' }]);
-assert.deepEqual(await repository.planSaleSnapshot(['known']), { matchedProductCount: 1, currentSaleCount: 2, activateCount: 0, deactivateCount: 1 });
+assert.deepEqual(await repository.planSaleSnapshot(['known']), { matchedProductCount: 1, favoriteSaleCandidateCount: 1, currentSaleCount: 2, activateCount: 0, deactivateCount: 1 });
+assert.ok(poolQueries.some((query) => query.sql.includes('JOIN favorites')));
 const persisted = await repository.persistSaleSnapshot([product('known'), product('new')]);
 assert.equal(persisted.createdProductCount, 1);
 assert.equal(persisted.updatedProductCount, 1);
@@ -58,7 +59,7 @@ const failed = new ProductSourceRepository({
       async query<T>(sql: string) {
         failedQueries.push(sql);
         if (sql.includes('INSERT INTO products')) throw new Error('write failed');
-        if (sql.includes('WITH desired')) return { rows: [{ matchedProductCount: 0, currentSaleCount: 0, activateCount: 0, deactivateCount: 0 }] as T[] };
+        if (sql.includes('WITH desired')) return { rows: [{ matchedProductCount: 0, favoriteSaleCandidateCount: 0, currentSaleCount: 0, activateCount: 0, deactivateCount: 0 }] as T[] };
         return { rows: [] as T[] };
       },
       release() { failedQueries.push('RELEASE'); }
