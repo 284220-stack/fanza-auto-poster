@@ -22,6 +22,7 @@ type ExtractionResult = {
 
 type ExtensionApi = {
   MAX_URLS: number;
+  PRODUCTION_DASHBOARD_ORIGIN: string;
   SALE_PAGE_URL: string;
   canPersist(result: Record<string, number | boolean>, count: number): boolean;
   canPersistSale(result: Record<string, number | boolean | string>, count: number, snapshotComplete: boolean): boolean;
@@ -50,6 +51,7 @@ vm.runInContext(coreSource, context, { filename: 'chrome-extension/core.js' });
 const api = (context as { FanzaFavoriteSync: ExtensionApi }).FanzaFavoriteSync;
 
 assert.equal(api.MAX_URLS, 20);
+assert.equal(api.PRODUCTION_DASHBOARD_ORIGIN, 'https://fanza-auto-poster-production.up.railway.app');
 assert.equal(api.SALE_PAGE_URL, 'https://video.dmm.co.jp/av/list/');
 assert.equal(api.isAllowedFavoritesPage('https://www.dmm.co.jp/digital/videoa/-/bookmark/'), true);
 assert.equal(api.isAllowedFavoritesPage('https://video.dmm.co.jp/av/favorite/?sort=date'), true);
@@ -128,7 +130,7 @@ const relativeHrefResult = api.extractFavoriteUrls({ querySelectorAll: () => [re
 assert.equal(relativeHrefResult.extractedCount, 1);
 assert.equal(relativeHrefResult.invalidCandidateCount, 0);
 
-assert.equal(api.normalizeDashboardOrigin('https://example.up.railway.app/'), 'https://example.up.railway.app');
+assert.equal(api.normalizeDashboardOrigin('https://fanza-auto-poster-production.up.railway.app/'), 'https://fanza-auto-poster-production.up.railway.app');
 assert.equal(api.normalizeDashboardOrigin('http://localhost:8080/'), 'http://localhost:8080');
 assert.throws(() => api.normalizeDashboardOrigin('http://example.test/'));
 assert.throws(() => api.normalizeDashboardOrigin('https://example.test/'));
@@ -181,34 +183,34 @@ const result = await api.sendFavoriteSync(async (input, init) => {
   capturedUrl = String(input);
   capturedInit = init;
   return new Response(JSON.stringify({ result: syncSummary }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-}, 'https://example.up.railway.app', safeUrl, false);
+}, 'https://fanza-auto-poster-production.up.railway.app', safeUrl, false);
 assert.equal(result.checkOnly, true);
-assert.equal(capturedUrl, 'https://example.up.railway.app/api/favorites/sync');
+assert.equal(capturedUrl, 'https://fanza-auto-poster-production.up.railway.app/api/favorites/sync');
 assert.equal(capturedInit?.credentials, 'include');
 assert.equal(capturedInit?.redirect, 'error');
 assert.deepEqual(JSON.parse(String(capturedInit?.body)), { urls: safeUrl, persist: false });
 const sentHeaders = capturedInit?.headers as Record<string, string>;
 assert.deepEqual(JSON.parse(JSON.stringify(sentHeaders)), { 'Content-Type': 'application/json' });
 assert.equal('Authorization' in sentHeaders, false);
-await assert.rejects(api.sendFavoriteSync(async () => new Response('', { status: 401 }), 'https://example.up.railway.app', safeUrl, false));
+await assert.rejects(api.sendFavoriteSync(async () => new Response('', { status: 401 }), 'https://fanza-auto-poster-production.up.railway.app', safeUrl, false));
 const persistedSummary = { ...syncSummary, checkOnly: false, currentCount: 1 };
 const persisted = await api.sendFavoriteSync(async (_input, init) => {
   assert.equal(JSON.parse(String(init?.body)).persist, true);
   return new Response(JSON.stringify({ result: persistedSummary }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-}, 'https://example.up.railway.app', safeUrl, true);
+}, 'https://fanza-auto-poster-production.up.railway.app', safeUrl, true);
 assert.equal(persisted.checkOnly, false);
 assert.equal(persisted.currentCount, 1);
 
 const saleChecked = await api.sendManualSaleSync(async (input, init) => {
-  assert.equal(String(input), 'https://example.up.railway.app/api/sales/manual-sync');
+  assert.equal(String(input), 'https://fanza-auto-poster-production.up.railway.app/api/sales/manual-sync');
   assert.deepEqual(JSON.parse(String(init?.body)), { urls: safeUrl, persist: false, snapshotComplete: true });
   return new Response(JSON.stringify({ result: saleSummary }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-}, 'https://example.up.railway.app', safeUrl, false, true);
+}, 'https://fanza-auto-poster-production.up.railway.app', safeUrl, false, true);
 assert.equal(saleChecked.checkOnly, true);
 await api.sendManualSaleSync(async (_input, init) => {
   assert.deepEqual(JSON.parse(String(init?.body)), { urls: safeUrl, persist: true, snapshotComplete: true, expectedHash: hash, checkToken });
   return new Response(JSON.stringify({ result: { ...saleSummary, checkOnly: false } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-}, 'https://example.up.railway.app', safeUrl, true, true, hash, checkToken);
+}, 'https://fanza-auto-poster-production.up.railway.app', safeUrl, true, true, hash, checkToken);
 
 assert.equal(manifest.manifest_version, 3);
 assert.deepEqual(manifest.permissions, ['activeTab', 'scripting']);
@@ -222,5 +224,9 @@ assert.ok(popupHtml.includes('id="open-sale"'));
 assert.ok(popupHtml.includes('FANZAセール一覧を開く'));
 assert.ok(popupHtml.includes('セール商品を抽出してcheck-only'));
 assert.ok(popupSource.includes('chrome.tabs.create({ url: sync.SALE_PAGE_URL })'));
+assert.ok(popupHtml.includes('value="https://fanza-auto-poster-production.up.railway.app" readonly'));
+assert.ok(popupHtml.includes('開発用詳細設定'));
+assert.ok(popupSource.includes('dashboardOrigin.value = sync.PRODUCTION_DASHBOARD_ORIGIN'));
+assert.ok(popupSource.includes('developerOriginButton.disabled = value'));
 
 console.log('chrome favorite sync extension: ok');

@@ -2,6 +2,7 @@
   'use strict';
 
   const MAX_URLS = 20;
+  const PRODUCTION_DASHBOARD_ORIGIN = 'https://fanza-auto-poster-production.up.railway.app';
   const FAVORITE_PAGE_HOSTS = new Set(['www.dmm.co.jp', 'video.dmm.co.jp', 'www.fanza.com']);
   const FAVORITE_PATH_SEGMENTS = new Set(['favorite', 'favorites', 'bookmark', 'bookmarks']);
   const SALE_PAGE_URL = 'https://video.dmm.co.jp/av/list/';
@@ -303,6 +304,7 @@
 
   global.FanzaFavoriteSync = Object.freeze({
     MAX_URLS,
+    PRODUCTION_DASHBOARD_ORIGIN,
     SALE_PAGE_URL,
     SafeSyncError,
     canPersist,

@@ -3,6 +3,7 @@
 
   const sync = globalThis.FanzaFavoriteSync;
   const dashboardOrigin = document.querySelector('#dashboard-origin');
+  const developerOriginButton = document.querySelector('#enable-developer-origin');
   const openSaleButton = document.querySelector('#open-sale');
   const saleCheckButton = document.querySelector('#sale-check');
   const salePersistButton = document.querySelector('#sale-persist');
@@ -14,6 +15,23 @@
   const checkedStates = { sale: undefined, favorite: undefined };
   let running = false;
 
+  dashboardOrigin.value = sync.PRODUCTION_DASHBOARD_ORIGIN;
+  dashboardOrigin.readOnly = true;
+
+  developerOriginButton.addEventListener('click', () => {
+    const enable = dashboardOrigin.readOnly;
+    dashboardOrigin.readOnly = !enable;
+    dashboardOrigin.setAttribute('aria-readonly', String(!enable));
+    developerOriginButton.setAttribute('aria-pressed', String(enable));
+    developerOriginButton.textContent = enable ? '正式production URLへ戻す' : '開発用originの編集を有効にする';
+    if (enable) {
+      dashboardOrigin.focus();
+      dashboardOrigin.select();
+    } else {
+      dashboardOrigin.value = sync.PRODUCTION_DASHBOARD_ORIGIN;
+    }
+  });
+
   function setStatus(message, type) {
     status.textContent = message;
     status.className = `status${type ? ` ${type}` : ''}`;
@@ -21,6 +39,7 @@
 
   function setBusy(value) {
     running = value;
+    developerOriginButton.disabled = value;
     openSaleButton.disabled = value;
     saleCheckButton.disabled = value;
     favoriteCheckButton.disabled = value;
